@@ -1,9 +1,10 @@
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
-using CitizenPortal.Application.Dtos;
+using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Interfaces;
+using CitizenPortal.Application.Dtos.Auth;
 
 namespace CitizenPortal.Infrastructure.ApiClients;
 
@@ -19,20 +20,20 @@ public class KeycloakClientAuthentication : IKeycloakClientAuthentication
 
     public KeycloakClientAuthentication(
         HttpClient httpClient,
-        IConfiguration configuration,
+        IOptions<KeycloakSettings> keycloakOptions,
         ILogger<KeycloakClientAuthentication> logger)
     {
         _httpClient = httpClient;
         _logger = logger;
 
-        var keycloakUrl = configuration["KEYCLOAK_BASEURL"] ?? "http://keycloak:8080";
-        var realm = configuration["KEYCLOAK_REALM"] ?? "CitizenRealm";
-        _clientId = configuration["KEYCLOAK_CLIENTID"] ?? "citizen-portal-app";
-        _clientSecret = configuration["KEYCLOAK_CLIENTSECRET"] ?? "";
-        _redirectUri = configuration["KEYCLOAK_REDIRECTURI"] ?? "http://localhost:3000/oauth2callback";
+        var settings = keycloakOptions.Value;
 
-        _tokenEndpoint = $"{keycloakUrl}/realms/{realm}/protocol/openid-connect/token";
-        _logoutEndpoint = $"{keycloakUrl}/realms/{realm}/protocol/openid-connect/logout";
+        _clientId = settings.ClientId;
+        _clientSecret = settings.ClientSecret;
+        _redirectUri = settings.RedirectUri;
+
+        _tokenEndpoint = $"{settings.BaseUrl}/realms/{settings.Realm}/protocol/openid-connect/token";
+        _logoutEndpoint = $"{settings.BaseUrl}/realms/{settings.Realm}/protocol/openid-connect/logout";
     }
 
     /// <summary>
@@ -67,16 +68,19 @@ public class KeycloakClientAuthentication : IKeycloakClientAuthentication
             var json = await response.Content.ReadAsStringAsync();
             return JsonSerializer.Deserialize<TokenDto>(json, new JsonSerializerOptions
             {
-                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error exchanging authorization code for token");
+            _logger.LogError(ex, "Error exchanging authorization code for tokens");
             return null;
         }
     }
 
+    /// <summary>
+    /// Refresh the access token using the refresh token.
+    /// </summary>
     public async Task<TokenDto?> RefreshTokenAsync(string refreshToken)
     {
         try
@@ -104,7 +108,7 @@ public class KeycloakClientAuthentication : IKeycloakClientAuthentication
             var json = await response.Content.ReadAsStringAsync();
             return JsonSerializer.Deserialize<TokenDto>(json, new JsonSerializerOptions
             {
-                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             });
         }
         catch (Exception ex)
@@ -114,6 +118,9 @@ public class KeycloakClientAuthentication : IKeycloakClientAuthentication
         }
     }
 
+    /// <summary>
+    /// Revoke the refresh token (logout).
+    /// </summary>
     public async Task<bool> LogoutAsync(string refreshToken)
     {
         try
@@ -130,7 +137,14 @@ public class KeycloakClientAuthentication : IKeycloakClientAuthentication
             var content = new FormUrlEncodedContent(parameters);
             var response = await _httpClient.PostAsync(_logoutEndpoint, content);
 
-            return response.IsSuccessStatusCode;
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Logout failed ({StatusCode}): {Error}", response.StatusCode, error);
+                return false;
+            }
+
+            return true;
         }
         catch (Exception ex)
         {

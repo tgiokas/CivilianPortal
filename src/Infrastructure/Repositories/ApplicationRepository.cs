@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
+
 using CitizenPortal.Infrastructure.Database;
 
 namespace CitizenPortal.Infrastructure.Repositories;
@@ -16,7 +17,7 @@ public class ApplicationRepository : IApplicationRepository
         _dbContext = dbContext;
     }
 
-    public async Task<Application?> GetByIdAsync(int id)
+    public async Task<Domain.Entities.Application?> GetByIdAsync(int id)
     {
         return await _dbContext.Applications
             .AsNoTracking()
@@ -24,7 +25,7 @@ public class ApplicationRepository : IApplicationRepository
             .FirstOrDefaultAsync(a => a.Id == id);
     }
 
-    public async Task<Application?> GetByPublicIdAsync(Guid publicId)
+    public async Task<Domain.Entities.Application?> GetByPublicIdAsync(Guid publicId)
     {
         return await _dbContext.Applications
             .AsNoTracking()
@@ -32,7 +33,7 @@ public class ApplicationRepository : IApplicationRepository
             .FirstOrDefaultAsync(a => a.PublicId == publicId);
     }
 
-    public async Task<List<Application>> GetByCitizenUserIdAsync(int citizenUserId)
+    public async Task<List<Domain.Entities.Application>> GetByCitizenUserIdAsync(int citizenUserId)
     {
         return await _dbContext.Applications
             .AsNoTracking()
@@ -42,12 +43,12 @@ public class ApplicationRepository : IApplicationRepository
             .ToListAsync();
     }
 
-    public async Task AddAsync(Application application)
+    public async Task AddAsync(Domain.Entities.Application application)
     {
         await _dbContext.Applications.AddAsync(application);
     }
 
-    public Task UpdateAsync(Application application)
+    public Task UpdateAsync(Domain.Entities.Application application)
     {
         application.ModifiedAt = DateTime.UtcNow;
         _dbContext.Applications.Update(application);

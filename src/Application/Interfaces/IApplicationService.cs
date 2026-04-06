@@ -1,4 +1,6 @@
 using CitizenPortal.Application.Dtos;
+using CitizenPortal.Application.Dtos.App;
+using CitizenPortal.Application.Dtos.Messaging;
 using Microsoft.AspNetCore.Http;
 
 namespace CitizenPortal.Application.Interfaces;

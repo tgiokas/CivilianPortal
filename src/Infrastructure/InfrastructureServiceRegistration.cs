@@ -1,17 +1,19 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 using Npgsql;
 
+using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
+using CitizenPortal.Application.Services;
 using CitizenPortal.Domain.Interfaces;
 using CitizenPortal.Infrastructure.ApiClients;
 using CitizenPortal.Infrastructure.Database;
 using CitizenPortal.Infrastructure.Messaging;
 using CitizenPortal.Infrastructure.Repositories;
-using CitizenPortal.Application.Services;
 
 namespace CitizenPortal.Infrastructure;
 
@@ -20,8 +22,21 @@ public static class InfrastructureServiceRegistration
     public static IServiceCollection AddInfrastructureServices(
         this IServiceCollection services, IConfiguration configuration)
     {
+        // === Bind Settings from env variables (same pattern as Auth) ===
+        var portalSettings = PortalSettings.BindFromConfiguration(configuration);
+        services.AddSingleton(Options.Create(portalSettings));
+
+        var keycloakSettings = KeycloakSettings.BindFromConfiguration(configuration);
+        services.AddSingleton(Options.Create(keycloakSettings));
+
+        var kafkaSettings = KafkaSettings.BindFromConfiguration(configuration);
+        services.AddSingleton(Options.Create(kafkaSettings));
+
+        var storageClientSettings = StorageClientSettings.BindFromConfiguration(configuration);
+        services.AddSingleton(Options.Create(storageClientSettings));
+
         // === Database ===
-        var connectionString = configuration["PORTAL_DB_CONNECTION"];
+        var connectionString = portalSettings.DbConnection;
         var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
         dataSourceBuilder.EnableDynamicJson();
         var dataSource = dataSourceBuilder.Build();
@@ -44,7 +59,7 @@ public static class InfrastructureServiceRegistration
         // === Application Services ===
         services.AddScoped<IApplicationService, ApplicationService>();
         services.AddScoped<ICitizenUserService, CitizenUserService>();
-        services.AddScoped<IAuthenticationService, AuthenticationService>();
+        services.AddScoped<IAuthenticationService, AuthenticationService>();        
 
         // === Kafka ===
         services.AddSingleton<IMessagePublisher, KafkaPublisher>();
@@ -54,23 +69,20 @@ public static class InfrastructureServiceRegistration
         services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS → updates status
 
         // === HTTP Clients (via Traefik) ===
-        services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
-        {
-            client.BaseAddress = new Uri(
-                configuration["DMS_STORAGE_URL"] ?? "http://dms-storage:8080");
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
-
-        // Keycloak client for token exchange (CitizenRealm)
         services.AddHttpClient<IKeycloakClientAuthentication, KeycloakClientAuthentication>();
 
-        // === Error Catalog ===
+        services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
+        {
+            client.BaseAddress = new Uri(storageClientSettings.BaseUrl);
+        });
+
+        // Add Error Catalog Path
         var path = Path.Combine(Environment.CurrentDirectory, "errors.json");
         if (!File.Exists(path))
             throw new FileNotFoundException($"errors.json not found at: {path}");
 
-        var errorCatalog = ErrorCatalog.LoadFromFile(path);
-        services.AddSingleton<IErrorCatalog>(errorCatalog);
+        var errorcat = ErrorCatalog.LoadFromFile(path);
+        services.AddSingleton<IErrorCatalog>(errorcat);
 
         return services;
     }

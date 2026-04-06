@@ -6,6 +6,7 @@ using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Interfaces;
+using CitizenPortal.Application.Dtos.Auth;
 
 namespace CitizenPortal.Application.Services;
 

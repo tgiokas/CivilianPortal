@@ -6,6 +6,7 @@ using Serilog;
 
 using CitizenPortal.Api.Middlewares;
 using CitizenPortal.Api.Services;
+using CitizenPortal.Application.Configuration;
 using CitizenPortal.Infrastructure;
 using CitizenPortal.Infrastructure.Database;
 
@@ -21,33 +22,26 @@ try
     builder.Host.UseSerilog((context, services, configuration) =>
         configuration.ReadFrom.Configuration(context.Configuration));
 
+    // Bind KeycloakSettings early so we can use it for JWT config
+    var keycloakSettings = KeycloakSettings.BindFromConfiguration(builder.Configuration);
+
     // Keycloak Role Mapper
     builder.Services.AddSingleton<KeycloakRoleMapper>();
 
-    // Authentication - CitizenRealm
+    // Authentication — CitizenRealm (same pattern as Auth's Program.cs)
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
         {
-            options.Authority = builder.Configuration["KEYCLOAK_AUTHORITY"]
-                ?? builder.Configuration["Keycloak:Authority"]
-                ?? "http://keycloak:8080/realms/CitizenRealm";
-
-            options.Audience = builder.Configuration["KEYCLOAK_CLIENTID"]
-                ?? builder.Configuration["Keycloak:ClientId"]
-                ?? "citizen-portal-app";
-
-            options.RequireHttpsMetadata = bool.Parse(
-                builder.Configuration["Keycloak:RequireHttpsMetadata"] ?? "false");
+            options.Authority = keycloakSettings.Authority;
+            options.Audience = keycloakSettings.ClientId;
+            options.RequireHttpsMetadata = keycloakSettings.RequireHttpsMetadata;
 
             options.TokenValidationParameters = new TokenValidationParameters
             {
                 ValidateIssuer = true,
-                ValidIssuer = builder.Configuration["KEYCLOAK_AUTHORITY"]
-                    ?? builder.Configuration["Keycloak:Authority"],
+                ValidIssuer = keycloakSettings.Authority,
                 ValidateAudience = true,
-                ValidAudiences = [builder.Configuration["KEYCLOAK_CLIENTID"]
-                    ?? builder.Configuration["Keycloak:ClientId"]
-                    ?? "citizen-portal-app"],
+                ValidAudiences = [keycloakSettings.ClientId],
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true
             };
@@ -80,7 +74,7 @@ try
         });
     });
 
-    // Infrastructure (DB, Repos, Services, Kafka, HttpClients)
+    // Infrastructure (Settings, DB, Repos, Services, Kafka, HttpClients)
     builder.Services.AddInfrastructureServices(builder.Configuration);
 
     // Health checks

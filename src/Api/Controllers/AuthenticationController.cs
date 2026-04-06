@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
+using CitizenPortal.Application.Dtos.Auth;
 
 namespace CitizenPortal.Api.Controllers;
 
@@ -127,9 +128,4 @@ public class AuthenticationController : ControllerBase
             MaxAge = TimeSpan.FromDays(7)
         });
     }
-}
-
-public class RefreshRequestDto
-{
-    public string? RefreshToken { get; set; }
 }

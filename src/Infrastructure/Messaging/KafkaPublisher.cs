@@ -1,9 +1,10 @@
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using Confluent.Kafka;
 
+using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Interfaces;
 
 namespace CitizenPortal.Infrastructure.Messaging;
@@ -13,35 +14,31 @@ public sealed class KafkaPublisher : IMessagePublisher, IDisposable
     private readonly IProducer<string, string> _producer;
     private readonly ILogger<KafkaPublisher> _logger;
 
-    public KafkaPublisher(IConfiguration config, ILogger<KafkaPublisher> logger)
+    public KafkaPublisher(IOptions<KafkaSettings> kafkaOptions, ILogger<KafkaPublisher> logger)
     {
         _logger = logger;
+        var settings = kafkaOptions.Value;
 
         var producerConfig = new ProducerConfig
         {
-            BootstrapServers = config["KAFKA_BOOTSTRAP_SERVERS"]
-                ?? throw new ArgumentNullException(nameof(config), "KAFKA_BOOTSTRAP_SERVERS is not set."),
-
-            Acks = Enum.Parse<Acks>(
-                config["PORTAL_KAFKA_ACKS"] ?? "All"),
-
-            EnableIdempotence = bool.Parse(
-                config["PORTAL_KAFKA_ENABLE_IDEMPOTENCE"] ?? "true"),
-
-            MessageSendMaxRetries = int.Parse(
-                config["PORTAL_KAFKA_MESSAGE_SEND_MAX_RETRIES"] ?? "3"),
-
-            RetryBackoffMs = int.Parse(
-                config["PORTAL_KAFKA_RETRY_BACKOFF_MS"] ?? "100"),
-
-            RequestTimeoutMs = int.Parse(
-                config["PORTAL_KAFKA_REQUEST_TIMEOUT_MS"] ?? "5000"),
-
-            MessageTimeoutMs = int.Parse(
-                config["PORTAL_KAFKA_MESSAGE_TIMEOUT_MS"] ?? "10000")
+            BootstrapServers = settings.BootstrapServers,
+            Acks = Enum.Parse<Acks>(settings.Acks),
+            EnableIdempotence = settings.EnableIdempotence,
+            MessageSendMaxRetries = settings.MessageSendMaxRetries,
+            RetryBackoffMs = settings.RetryBackoffMs,
+            RequestTimeoutMs = settings.RequestTimeoutMs,
+            MessageTimeoutMs = settings.MessageTimeoutMs,
+            ReconnectBackoffMs = settings.ReconnectBackoffMs,
+            ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,
+            SocketConnectionSetupTimeoutMs = settings.SocketConnectionSetupTimeoutMs,
+            SocketTimeoutMs = settings.SocketTimeoutMs
         };
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
+
+        _logger.LogInformation(
+            "Kafka producer initialized — Servers: {Servers}, Acks: {Acks}, Idempotent: {Idempotent}",
+            settings.BootstrapServers, settings.Acks, settings.EnableIdempotence);
     }
 
     public async Task PublishJsonAsync<T>(

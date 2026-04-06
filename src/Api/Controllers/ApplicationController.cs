@@ -1,9 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-
-using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
+using CitizenPortal.Application.Dtos.App;
 
 namespace CitizenPortal.Api.Controllers;
 

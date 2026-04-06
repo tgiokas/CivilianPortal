@@ -1,21 +1,21 @@
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 using Confluent.Kafka;
 
-using CitizenPortal.Application.Dtos;
+using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Interfaces;
+using CitizenPortal.Application.Dtos.Messaging;
 
 namespace CitizenPortal.Infrastructure.Messaging;
 
 /// <summary>
 /// Kafka consumer that listens for protocol assignment events from DMS.
 /// When DMS finishes processing a citizen application, it publishes to
-/// "citizen.application.protocol-assigned" topic. This consumer picks it
-/// up and updates the CitizenPortal DB.
+/// the protocol topic. This consumer picks it up and updates the CitizenPortal DB.
 /// </summary>
 public class ProtocolAssignedConsumer : BackgroundService
 {
@@ -26,20 +26,25 @@ public class ProtocolAssignedConsumer : BackgroundService
 
     public ProtocolAssignedConsumer(
         IServiceScopeFactory scopeFactory,
-        IConfiguration config,
+        IOptions<KafkaSettings> kafkaOptions,
         ILogger<ProtocolAssignedConsumer> logger)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
-        _topic = config["PORTAL_KAFKA_PROTOCOL_TOPIC"] ?? "citizen.application.protocol-assigned";
+
+        var settings = kafkaOptions.Value;
+        _topic = settings.ProtocolTopic;
 
         var consumerConfig = new ConsumerConfig
         {
-            BootstrapServers = config["KAFKA_BOOTSTRAP_SERVERS"]
-                ?? throw new ArgumentNullException(nameof(config), "KAFKA_BOOTSTRAP_SERVERS is not set."),
-            GroupId = config["PORTAL_KAFKA_CONSUMER_GROUP"] ?? "citizen-portal-group",
+            BootstrapServers = settings.BootstrapServers,
+            GroupId = settings.ConsumerGroup,
             AutoOffsetReset = AutoOffsetReset.Earliest,
-            EnableAutoCommit = false
+            EnableAutoCommit = false,
+            ReconnectBackoffMs = settings.ReconnectBackoffMs,
+            ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,
+            SocketConnectionSetupTimeoutMs = settings.SocketConnectionSetupTimeoutMs,
+            SocketTimeoutMs = settings.SocketTimeoutMs
         };
 
         _consumer = new ConsumerBuilder<string, string>(consumerConfig).Build();
@@ -56,31 +61,21 @@ public class ProtocolAssignedConsumer : BackgroundService
             {
                 try
                 {
-                    var result = _consumer.Consume(TimeSpan.FromSeconds(1));
-                    if (result is null) continue;
+                    var result = _consumer.Consume(stoppingToken);
+                    if (result?.Message?.Value is null) continue;
 
-                    _logger.LogDebug("Consumed message from {Topic}: {Key}", _topic, result.Message.Key);
+                    _logger.LogInformation("Received protocol assignment: {Key}", result.Message.Key);
 
-                    var protocolEvent = JsonSerializer.Deserialize<ProtocolAssignedEvent>(result.Message.Value);
-                    if (protocolEvent is null)
+                    var payload = JsonSerializer.Deserialize<ProtocolAssignedEvent>(
+                        result.Message.Value,
+                        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
+                    if (payload is not null)
                     {
-                        _logger.LogWarning("Failed to deserialize ProtocolAssignedEvent");
-                        _consumer.Commit(result);
-                        continue;
-                    }
+                        using var scope = _scopeFactory.CreateScope();
+                        var appService = scope.ServiceProvider.GetRequiredService<IApplicationService>();
 
-                    using var scope = _scopeFactory.CreateScope();
-                    var applicationService = scope.ServiceProvider.GetRequiredService<IApplicationService>();
-                    var updateResult = await applicationService.UpdateStatusFromDmsAsync(protocolEvent);
-
-                    if (updateResult.Success)
-                    {
-                        _logger.LogInformation("Protocol {ProtocolNumber} assigned to application {PublicId}",
-                            protocolEvent.ProtocolNumber, protocolEvent.ApplicationPublicId);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to update status: {Error}", updateResult.Message);
+                        await appService.UpdateStatusFromDmsAsync(payload);
                     }
 
                     _consumer.Commit(result);
@@ -89,20 +84,19 @@ public class ProtocolAssignedConsumer : BackgroundService
                 {
                     _logger.LogError(ex, "Kafka consume error: {Reason}", ex.Error.Reason);
                 }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error processing protocol-assigned event");
+                    _logger.LogError(ex, "Unexpected error in ProtocolAssignedConsumer");
+                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
                 }
             }
         }, stoppingToken);
 
         _consumer.Close();
         _logger.LogInformation("ProtocolAssignedConsumer stopped.");
-    }
-
-    public override void Dispose()
-    {
-        _consumer.Dispose();
-        base.Dispose();
     }
 }

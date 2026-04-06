@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Application\CitizenPortal.Application.csproj" />
     <ProjectReference Include="..\Infrastructure\CitizenPortal.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
