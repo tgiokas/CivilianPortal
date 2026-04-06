@@ -1,0 +1,21 @@
+{
+  "PORTAL": [
+    { "code": "PORTAL-000", "message": "An unexpected error occurred." },
+    { "code": "PORTAL-001", "message": "Citizen user not found." },
+    { "code": "PORTAL-002", "message": "Application not found." },
+    { "code": "PORTAL-003", "message": "Failed to create application." },
+    { "code": "PORTAL-004", "message": "File upload to storage failed." },
+    { "code": "PORTAL-005", "message": "Storage service is unavailable." },
+    { "code": "PORTAL-006", "message": "Invalid file type." },
+    { "code": "PORTAL-007", "message": "File exceeds maximum allowed size." },
+    { "code": "PORTAL-008", "message": "Unauthorized access." },
+    { "code": "PORTAL-009", "message": "Citizen user already exists." },
+    { "code": "PORTAL-010", "message": "Failed to create citizen user." },
+    { "code": "PORTAL-011", "message": "Invalid application data." },
+    { "code": "PORTAL-012", "message": "Failed to publish outbox message." },
+    { "code": "PORTAL-013", "message": "Failed to update application status." },
+    { "code": "PORTAL-014", "message": "Authentication failed." },
+    { "code": "PORTAL-015", "message": "Token refresh failed." },
+    { "code": "PORTAL-016", "message": "Logout failed." }
+  ]
+}

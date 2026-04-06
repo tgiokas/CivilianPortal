@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # ==================== CitizenPortal API ====================
+  citizen-portal-api:
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile
+    container_name: citizen-portal-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+
+      # Database
+      PORTAL_DB_CONNECTION: "Host=citizen-portal-db;Port=5432;Database=citizenportaldb;Username=portaluser;Password=portalpass;Include Error Detail=true"
+
+      # Keycloak - CitizenRealm
+      KEYCLOAK_AUTHORITY: "http://keycloak:8080/realms/CitizenRealm"
+      KEYCLOAK_BASEURL: "http://keycloak:8080"
+      KEYCLOAK_REALM: "CitizenRealm"
+      KEYCLOAK_CLIENTID: "citizen-portal-app"
+      KEYCLOAK_CLIENTSECRET: ""
+      KEYCLOAK_REDIRECTURI: "http://localhost:3000/oauth2callback"
+      FRONTEND_REDIRECTURI: "http://localhost:3000"
+
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+      PORTAL_KAFKA_ACKS: "All"
+      PORTAL_KAFKA_ENABLE_IDEMPOTENCE: "true"
+      PORTAL_KAFKA_MESSAGE_SEND_MAX_RETRIES: "3"
+      PORTAL_KAFKA_RETRY_BACKOFF_MS: "100"
+      PORTAL_KAFKA_REQUEST_TIMEOUT_MS: "5000"
+      PORTAL_KAFKA_MESSAGE_TIMEOUT_MS: "10000"
+      PORTAL_KAFKA_PROTOCOL_TOPIC: "citizen.application.protocol-assigned"
+      PORTAL_KAFKA_CONSUMER_GROUP: "citizen-portal-group"
+
+      # DMS.Storage (via Traefik or direct)
+      DMS_STORAGE_URL: "http://dms-storage:8080"
+
+    depends_on:
+      - citizen-portal-db
+      - kafka
+    ports:
+      - "5040:8080"
+    networks:
+      - portal-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.citizen-portal.rule=PathPrefix(`/api/citizen`)"
+      - "traefik.http.services.citizen-portal.loadbalancer.server.port=8080"
+
+  # ==================== CitizenPortal Database ====================
+  citizen-portal-db:
+    image: postgres:16-alpine
+    container_name: citizen-portal-db
+    environment:
+      POSTGRES_DB: citizenportaldb
+      POSTGRES_USER: portaluser
+      POSTGRES_PASSWORD: portalpass
+    ports:
+      - "5433:5432"
+    volumes:
+      - citizen-portal-db-data:/var/lib/postgresql/data
+    networks:
+      - portal-network
+
+  # ==================== Kafka (shared — may already exist in DMS stack) ====================
+  kafka:
+    image: confluentinc/cp-kafka:7.7.0
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENERS: "PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    networks:
+      - portal-network
+
+  # ==================== Keycloak (shared — may already exist in DMS stack) ====================
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+    networks:
+      - portal-network
+
+volumes:
+  citizen-portal-db-data:
+
+networks:
+  portal-network:
+    driver: bridge
+    # In production, this joins the existing DMS network:
+    # external: true
+    # name: dms-network
