@@ -21,12 +21,17 @@ try
     // Serilog
     builder.Host.UseSerilog((context, services, configuration) =>
         configuration.ReadFrom.Configuration(context.Configuration));
+    
+    // Infrastructure (Settings, DB, Repos, Services, Kafka, HttpClients)
+    builder.Services.AddInfrastructureServices(builder.Configuration);
 
     // Bind KeycloakSettings early so we can use it for JWT config
     var keycloakSettings = KeycloakSettings.BindFromConfiguration(builder.Configuration);
 
     // Keycloak Role Mapper
     builder.Services.AddSingleton<KeycloakRoleMapper>();
+
+    builder.Services.AddControllers();
 
     // Authentication — CitizenRealm (same pattern as Auth's Program.cs)
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -58,10 +63,10 @@ try
             };
         });
 
-    builder.Services.AddAuthorization(options =>
-    {
-        options.AddPolicy("CitizenOnly", policy => policy.RequireRole("citizen"));
-    });
+    //builder.Services.AddAuthorization(options =>
+    //{
+    //    options.AddPolicy("CitizenOnly", policy => policy.RequireRole("citizen"));
+    //});
 
     // CORS
     builder.Services.AddCors(options =>
@@ -72,15 +77,10 @@ try
             policyBuilder.AllowAnyMethod();
             policyBuilder.AllowAnyHeader();
         });
-    });
-
-    // Infrastructure (Settings, DB, Repos, Services, Kafka, HttpClients)
-    builder.Services.AddInfrastructureServices(builder.Configuration);
+    }); 
 
     // Health checks
-    builder.Services.AddHealthChecks();
-
-    builder.Services.AddControllers();
+    builder.Services.AddHealthChecks();   
 
     if (builder.Environment.IsDevelopment())
     {
@@ -90,7 +90,7 @@ try
 
     var app = builder.Build();
 
-    // Health endpoint
+    // Expose a simple health endpoint at /health
     app.MapHealthChecks("/health");
 
     Log.Information("CitizenPortal is starting...");
