@@ -6,21 +6,25 @@ using Serilog;
 
 using CitizenPortal.Api.Middlewares;
 using CitizenPortal.Api.Services;
+using CitizenPortal.Application;
 using CitizenPortal.Application.Configuration;
 using CitizenPortal.Infrastructure;
 using CitizenPortal.Infrastructure.Database;
 
 Log.Logger = new LoggerConfiguration()
-.WriteTo.Console()
-.CreateBootstrapLogger();
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog
 builder.Host.UseSerilog((context, services, configuration) =>
     configuration.ReadFrom.Configuration(context.Configuration));
-    
-// Infrastructure (Settings, DB, Repos, Services, Kafka, HttpClients)
+
+// Add Application services
+builder.Services.AddApplicationServices();
+
+// Infrastructure (Settings, DB, Repos, Kafka, HttpClients)
 builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // Bind KeycloakSettings early so we can use it for JWT config

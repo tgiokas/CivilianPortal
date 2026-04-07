@@ -47,12 +47,3 @@ public class ErrorCatalog : IErrorCatalog
         return new ErrorInfo(code, "An unexpected error occurred.");
     }
 }
-
-public static class ErrorCatalogExtensions
-{
-    public static Dtos.Result<T> Fail<T>(this IErrorCatalog errors, string code)
-    {
-        var e = errors.GetError(code);
-        return Dtos.Result<T>.Fail(e.Message, e.Code);
-    }
-}

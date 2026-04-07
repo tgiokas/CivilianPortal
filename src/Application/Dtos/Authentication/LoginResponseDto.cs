@@ -1,3 +1,5 @@
+using CitizenPortal.Application.Dtos.App;
+
 namespace CitizenPortal.Application.Dtos.Auth;
 
 public class LoginResponseDto

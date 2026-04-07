@@ -58,7 +58,6 @@ public static class InfrastructureServiceRegistration
 
         // === Application Services ===
         services.AddScoped<IApplicationService, ApplicationService>();
-        services.AddScoped<ICitizenUserService, CitizenUserService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();        
 
         // === Kafka ===
