@@ -2,24 +2,25 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Logging;
 
 using CitizenPortal.Application.Dtos;
+using CitizenPortal.Application.Dtos.Auth;
+using CitizenPortal.Application.Dtos.App;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Interfaces;
-using CitizenPortal.Application.Dtos.Auth;
 
 namespace CitizenPortal.Application.Services;
 
 public class AuthenticationService : IAuthenticationService
 {
-    private readonly IKeycloakClientAuthentication _keycloakClientAuth;
+    private readonly IKeycloakApiClient _keycloakClientAuth;
     private readonly ICitizenUserRepository _citizenUserRepo;
     private readonly IApplicationDbContext _dbContext;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<AuthenticationService> _logger;
 
     public AuthenticationService(
-        IKeycloakClientAuthentication keycloakClientAuth,
+        IKeycloakApiClient keycloakClientAuth,
         ICitizenUserRepository citizenUserRepo,
         IApplicationDbContext dbContext,
         IErrorCatalog errors,
@@ -32,14 +33,12 @@ public class AuthenticationService : IAuthenticationService
         _logger = logger;
     }
 
-    /// <summary>
-    /// OAuth2 callback handler — same pattern as DMS.Auth.
+    /// OAuth2 callback handler
     /// 1. Exchange authorization code for tokens via Keycloak
     /// 2. Parse JWT claims (sub, email, name, taxisnet_id)
     /// 3. Check if citizen exists in our DB
     /// 4. If not → auto-provision (create CitizenUser)
     /// 5. Return tokens + citizen info
-    /// </summary>
     public async Task<Result<LoginResponseDto>> OAuth2CallbackAsync(string code)
     {
         // 1. Exchange code for tokens

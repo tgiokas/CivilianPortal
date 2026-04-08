@@ -1,7 +1,7 @@
 ﻿using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
 
-namespace Authentication.Application.Errors;
+namespace CitizenPortal.Application.Errors;
 
 public static class ErrorCatalogExtensions
 {

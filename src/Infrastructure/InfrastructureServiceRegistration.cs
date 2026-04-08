@@ -10,10 +10,10 @@ using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Application.Services;
 using CitizenPortal.Domain.Interfaces;
-using CitizenPortal.Infrastructure.ApiClients;
 using CitizenPortal.Infrastructure.Database;
 using CitizenPortal.Infrastructure.Messaging;
 using CitizenPortal.Infrastructure.Repositories;
+using CitizenPortal.Infrastructure.ExternalServices;
 
 namespace CitizenPortal.Infrastructure;
 
@@ -68,7 +68,7 @@ public static class InfrastructureServiceRegistration
         services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS → updates status
 
         // === HTTP Clients (via Traefik) ===
-        services.AddHttpClient<IKeycloakClientAuthentication, KeycloakClientAuthentication>();
+        services.AddHttpClient<IKeycloakApiClient, KeycloakApiClient>();
 
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
         {

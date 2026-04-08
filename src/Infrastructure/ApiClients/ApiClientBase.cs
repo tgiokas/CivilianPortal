@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Net;
-
 using Microsoft.Extensions.Logging;
 
 using CitizenPortal.Infrastructure.Helpers.Redaction;
@@ -26,7 +25,7 @@ public abstract class ApiClientBase
 
     protected async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
-        
+
         string requestBodyRaw = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : string.Empty;
 
         string requestBody = requestBodyRaw;
@@ -46,7 +45,7 @@ public abstract class ApiClientBase
         {
             _logger.LogError(ex, ErrorMessageTemplate, "Outgoing", request.Method,
                 request.RequestUri, requestBody, HttpStatusCode.ServiceUnavailable, "");
-            
+
             return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
             {
                 Content = new StringContent("Service is temporarily unavailable.")
@@ -57,7 +56,7 @@ public abstract class ApiClientBase
 
         string responseBodyRaw = await response.Content.ReadAsStringAsync(cancellationToken);
         string responseBody = JsonRedactor.TryRedact(responseBodyRaw);
-        
+
         int statusCode = (int)response.StatusCode;
         LogLevel logLevel = statusCode > 499 ? LogLevel.Error : LogLevel.Information;
 
@@ -66,4 +65,5 @@ public abstract class ApiClientBase
 
         return response;
     }
+}
       
