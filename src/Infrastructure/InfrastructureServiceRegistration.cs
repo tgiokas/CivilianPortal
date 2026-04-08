@@ -54,11 +54,7 @@ public static class InfrastructureServiceRegistration
         // === Repositories ===
         services.AddScoped<ICitizenUserRepository, CitizenUserRepository>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
-        services.AddScoped<IOutboxRepository, OutboxRepository>();
-
-        // === Application Services ===
-        services.AddScoped<IApplicationService, ApplicationService>();
-        services.AddScoped<IAuthenticationService, AuthenticationService>();        
+        services.AddScoped<IOutboxRepository, OutboxRepository>();   
 
         // === Kafka ===
         services.AddSingleton<IMessagePublisher, KafkaPublisher>();
@@ -67,8 +63,12 @@ public static class InfrastructureServiceRegistration
         services.AddHostedService<OutboxProcessor>();           // Publishes outbox → Kafka
         services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS → updates status
 
-        // === HTTP Clients (via Traefik) ===
-        services.AddHttpClient<IKeycloakApiClient, KeycloakApiClient>();
+        // === HTTP Clients ===
+        // Both now consistent — BaseAddress set at DI level
+        services.AddHttpClient<IKeycloakApiClient, KeycloakApiClient>(client =>
+        {
+            client.BaseAddress = new Uri(keycloakSettings.BaseUrl);
+        });
 
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
         {

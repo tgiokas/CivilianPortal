@@ -1,4 +1,4 @@
-namespace CitizenPortal.Application.Dtos.App;
+namespace CitizenPortal.Application.Dtos;
 
 public class CitizenUserDto
 {

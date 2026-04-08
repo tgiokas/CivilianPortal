@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Infrastructure.ApiClients;
-using CitizenPortal.Application.Dtos.Storage;
+using CitizenPortal.Application.Dtos;
 
 namespace CitizenPortal.Infrastructure.ExternalServices;
 
@@ -14,6 +14,9 @@ public class StorageApiClient : ApiClientBase, IStorageApiClient
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
+
+    private static string storageUploadEndpoint
+        => $"/api/storage/upload";
 
     public StorageApiClient(HttpClient httpClient, ILogger<StorageApiClient> logger)
         : base(httpClient, logger)
@@ -28,7 +31,7 @@ public class StorageApiClient : ApiClientBase, IStorageApiClient
         streamContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         content.Add(streamContent, "file", fileName);
 
-        var request = new HttpRequestMessage(HttpMethod.Post, "/api/storage/upload")
+        var request = new HttpRequestMessage(HttpMethod.Post, storageUploadEndpoint)
         {
             Content = content
         };

@@ -1,4 +1,4 @@
-﻿namespace CitizenPortal.Application.Dtos.Storage;
+﻿namespace CitizenPortal.Application.Dtos;
 
 public class StorageApiResponse
 {

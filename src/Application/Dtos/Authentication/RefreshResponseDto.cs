@@ -1,4 +1,4 @@
-namespace CitizenPortal.Application.Dtos.Auth;
+namespace CitizenPortal.Application.Dtos;
 
 public class RefreshResponseDto
 {

@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 using CitizenPortal.Application.Configuration;
-using CitizenPortal.Application.Dtos.Auth;
+using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Infrastructure.ApiClients;
 
@@ -24,6 +24,12 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
+    private string tokenEndpoint
+       => $"/realms/{_realm}/protocol/openid-connect/token";
+
+    private string logoutEndpoint
+        => $"/realms/{_realm}/protocol/openid-connect/logout";
+
     public KeycloakApiClient(HttpClient httpClient, IOptions<KeycloakSettings> keycloakOptions, ILogger<KeycloakApiClient> logger)
         : base(httpClient, logger)
     {
@@ -34,13 +40,7 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
         _clientId = settings.ClientId;
         _clientSecret = settings.ClientSecret;
         _redirectUri = settings.RedirectUri;
-    }
-
-    private string tokenEndpoint
-        => $"{_keycloakServerUrl}/realms/{_realm}/protocol/openid-connect/token";
-
-    private string logoutEndpoint
-        => $"{_keycloakServerUrl}/realms/{_realm}/protocol/openid-connect/logout";
+    }   
 
     /// Get Access Token using authorization code (Authorization Code Grant).
     /// Called after GSIS/TaxisNet redirects back with a code.

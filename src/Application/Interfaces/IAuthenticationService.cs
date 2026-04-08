@@ -1,5 +1,4 @@
 using CitizenPortal.Application.Dtos;
-using CitizenPortal.Application.Dtos.Auth;
 
 namespace CitizenPortal.Application.Interfaces;
 

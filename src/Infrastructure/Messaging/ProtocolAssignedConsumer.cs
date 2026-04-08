@@ -8,7 +8,7 @@ using Confluent.Kafka;
 
 using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Interfaces;
-using CitizenPortal.Application.Dtos.Messaging;
+using CitizenPortal.Application.Dtos;
 
 namespace CitizenPortal.Infrastructure.Messaging;
 

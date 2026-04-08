@@ -1,4 +1,4 @@
-namespace CitizenPortal.Application.Dtos.Messaging;
+namespace CitizenPortal.Application.Dtos;
 
 public class ProtocolAssignedEvent
 {

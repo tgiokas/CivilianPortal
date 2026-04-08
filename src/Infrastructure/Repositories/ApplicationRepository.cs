@@ -1,9 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 
-using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
-
 using CitizenPortal.Infrastructure.Database;
 
 namespace CitizenPortal.Infrastructure.Repositories;

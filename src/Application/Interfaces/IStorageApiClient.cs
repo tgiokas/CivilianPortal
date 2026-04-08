@@ -1,4 +1,4 @@
-using CitizenPortal.Application.Dtos.Storage;
+using CitizenPortal.Application.Dtos;
 
 namespace CitizenPortal.Application.Interfaces;
 

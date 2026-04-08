@@ -8,8 +8,6 @@ using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
-using CitizenPortal.Application.Dtos.App;
-using CitizenPortal.Application.Dtos.Messaging;
 
 namespace CitizenPortal.Application.Services;
 

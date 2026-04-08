@@ -2,8 +2,6 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Logging;
 
 using CitizenPortal.Application.Dtos;
-using CitizenPortal.Application.Dtos.Auth;
-using CitizenPortal.Application.Dtos.App;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Domain.Entities;

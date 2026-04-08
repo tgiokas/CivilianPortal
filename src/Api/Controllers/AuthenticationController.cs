@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
-using CitizenPortal.Application.Dtos.Auth;
 
 namespace CitizenPortal.Api.Controllers;
 
