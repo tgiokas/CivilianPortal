@@ -15,6 +15,5 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Confluent.Kafka" Version="2.6.1" />
   </ItemGroup>
 </Project>

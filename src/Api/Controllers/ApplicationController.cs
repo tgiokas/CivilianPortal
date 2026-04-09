@@ -19,12 +19,10 @@ public class ApplicationController : ControllerBase
         _applicationService = applicationService;
     }
 
-    /// <summary>
     /// Submit a new application with optional file attachments.
     /// Citizen must already be provisioned (via oauth2callback on login).
     /// Files are uploaded to DMS.Storage, then the application + outbox event
     /// are saved in a single DB transaction (Outbox Pattern).
-    /// </summary>
     [HttpPost("submit")]
     public async Task<IActionResult> SubmitApplication(
         [FromForm] ApplicationCreateDto request,
@@ -44,9 +42,8 @@ public class ApplicationController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
     /// Get a specific application by its public tracking ID.
-    /// </summary>
+
     [HttpGet("{publicId:guid}")]
     public async Task<IActionResult> GetApplication(Guid publicId)
     {

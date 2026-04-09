@@ -12,11 +12,10 @@ using CitizenPortal.Application.Dtos;
 
 namespace CitizenPortal.Infrastructure.Messaging;
 
-/// <summary>
 /// Kafka consumer that listens for protocol assignment events from DMS.
 /// When DMS finishes processing a citizen application, it publishes to
 /// the protocol topic. This consumer picks it up and updates the CitizenPortal DB.
-/// </summary>
+
 public class ProtocolAssignedConsumer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -38,13 +37,16 @@ public class ProtocolAssignedConsumer : BackgroundService
         var consumerConfig = new ConsumerConfig
         {
             BootstrapServers = settings.BootstrapServers,
-            GroupId = settings.ConsumerGroup,
-            AutoOffsetReset = AutoOffsetReset.Earliest,
-            EnableAutoCommit = false,
             ReconnectBackoffMs = settings.ReconnectBackoffMs,
             ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,
             SocketConnectionSetupTimeoutMs = settings.SocketConnectionSetupTimeoutMs,
-            SocketTimeoutMs = settings.SocketTimeoutMs
+            SocketTimeoutMs = settings.SocketTimeoutMs,            
+            
+            GroupId = settings.ConsumerGroup,
+            AutoOffsetReset = settings.AutoOffsetReset,
+            EnableAutoCommit = false,
+            SessionTimeoutMs = settings.SessionTimeoutMs,
+            MaxPollIntervalMs = settings.MaxPollIntervalMs,
         };
 
         _consumer = new ConsumerBuilder<string, string>(consumerConfig).Build();

@@ -8,7 +8,6 @@ using Npgsql;
 using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
-using CitizenPortal.Application.Services;
 using CitizenPortal.Domain.Interfaces;
 using CitizenPortal.Infrastructure.Database;
 using CitizenPortal.Infrastructure.Messaging;

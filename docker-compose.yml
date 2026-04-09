@@ -1,31 +1,96 @@
 version: '3.8'
 
 services:
-  # ==================== CitizenPortal API ====================
-  citizen-portal-api:
-    build:
-      context: .
-      dockerfile: src/Api/Dockerfile
-    container_name: citizen-portal-api
+  
+# ==================== Keycloak (shared — already exist in DMS stack) ====================
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.3.4
+    container_name: keycloak
+    env_file:
+      - .env
+    command:
+      - start-dev      
+      - --import-realm      
+    depends_on:
+      - keycloak-db
+    #dev only
+    ports:
+      - "8085:8080"     
+    networks:
+      - portal-network   
+    volumes:
+      - ./exports/realm-export.json:/opt/keycloak/data/import/realm-export.json
+      - ./keycloak-providers/keycloak-gsis-providers.jar:/opt/keycloak/providers/keycloak-gsis-providers.jar
+      # - ./certs:/opt/keycloak/certs
+
+  keycloak-db:
+    image: postgres:15.2
+    container_name: keycloak-db
     env_file:
       - .env
     environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
-    depends_on:
-      citizen-portal-db:
-        condition: service_healthy
-      kafka:
-        condition: service_started
+      POSTGRES_USER: ${KC_DB_USERNAME}
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD}
+      POSTGRES_DB: ${KC_DB_POSTGRES_DB}
+    #dev only
     ports:
-      - "5040:8080"
+      - "5432:5432"
+    volumes:
+      - ./volumes/keycloak_db_data:/var/lib/postgresql/data
     networks:
       - portal-network
+      
+  # ==================== Kafka (shared — already exist in DMS stack) ====================   
+  
+  kafka1:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka1
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka1:29093"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,DOCKER://0.0.0.0:19092,CONTROLLER://0.0.0.0:29093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://localhost:9092,DOCKER://kafka1:19092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,DOCKER:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "DOCKER"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+    networks:
+      - authentication-network
+    healthcheck:
+      test: [ "CMD",  "kafka-topics",   "--bootstrap-server", "localhost:9092",  "--list", ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     volumes:
-      - ./error-codes/errors.json:/app/errors.json:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.citizen-portal.rule=PathPrefix(`/api/citizen`)"
-      - "traefik.http.services.citizen-portal.loadbalancer.server.port=8080"
+      - kafka1-data:/var/lib/kafka/data
+      
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8081:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka1:19092
+      - SERVER_PORT=8080
+    depends_on:
+      - kafka1     
+    networks:
+      - authentication-network
+    restart: always 
 
   # ==================== CitizenPortal Database ====================
   citizen-portal-db:
@@ -50,79 +115,32 @@ services:
       retries: 5
       start_period: 30s
 
-  # ==================== Kafka (shared — may already exist in DMS stack) ====================
-  kafka:
-    image: confluentinc/cp-kafka:7.7.0
-    container_name: kafka
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
-      KAFKA_PROCESS_ROLES: "broker,controller"
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
-      KAFKA_LISTENERS: "PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093"
-      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
-      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
-      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-    ports:
-      - "9092:9092"
-    networks:
-      - portal-network
-
-  # ==================== Keycloak (shared — may already exist in DMS stack) ====================
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.0
-    container_name: keycloak
-    command: start-dev
+  # ==================== CitizenPortal API ====================
+  citizen-portal-api:
+    build:
+      context: .
+      dockerfile: src/Api/Dockerfile    
     env_file:
       - .env
     environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KEYCLOAK_DB_NAME}
-      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
-      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT}
     depends_on:
-      keycloak-db:
+      citizen-portal-db:
         condition: service_healthy
+      kafka:
+        condition: service_started
     ports:
-      - "8080:8080"
+      - "5050:8080"
     networks:
       - portal-network
-
-  # ==================== Keycloak Database ====================
-  keycloak-db:
-    image: postgres:16-alpine
-    container_name: keycloak-db
-    env_file:
-      - .env
-    environment:
-      POSTGRES_USER: ${KEYCLOAK_DB_USER}
-      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
-      POSTGRES_DB: ${KEYCLOAK_DB_NAME}
-    ports:
-      - "5434:5432"
     volumes:
-      - keycloak-db-data:/var/lib/postgresql/data
-    networks:
-      - portal-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloakuser} -d ${KEYCLOAK_DB_NAME:-keycloakdb}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      - ./error-codes/errors.json:/app/errors.json:ro
 
 volumes:
   citizen-portal-db-data:
   keycloak-db-data:
+  kafka1-data:  
 
 networks:
   portal-network:
     driver: bridge
-    # In production, this joins the existing DMS network:
-    # external: true
-    # name: archium-network

@@ -22,23 +22,23 @@ public sealed class KafkaPublisher : IMessagePublisher, IDisposable
         var producerConfig = new ProducerConfig
         {
             BootstrapServers = settings.BootstrapServers,
-            Acks = Enum.Parse<Acks>(settings.Acks),
-            EnableIdempotence = settings.EnableIdempotence,
-            MessageSendMaxRetries = settings.MessageSendMaxRetries,
-            RetryBackoffMs = settings.RetryBackoffMs,
-            RequestTimeoutMs = settings.RequestTimeoutMs,
-            MessageTimeoutMs = settings.MessageTimeoutMs,
             ReconnectBackoffMs = settings.ReconnectBackoffMs,
             ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,
             SocketConnectionSetupTimeoutMs = settings.SocketConnectionSetupTimeoutMs,
-            SocketTimeoutMs = settings.SocketTimeoutMs
+            SocketTimeoutMs = settings.SocketTimeoutMs,
+
+            EnableIdempotence = true,
+            Acks = Acks.All,
+            RetryBackoffMs = settings.RetryBackoffMs,
+            RequestTimeoutMs = settings.RequestTimeoutMs,
+            MessageTimeoutMs = settings.MessageTimeoutMs,
         };
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
 
         _logger.LogInformation(
             "Kafka producer initialized — Servers: {Servers}, Acks: {Acks}, Idempotent: {Idempotent}",
-            settings.BootstrapServers, settings.Acks, settings.EnableIdempotence);
+            settings.BootstrapServers, Acks.All.ToString(), true);
     }
 
     public async Task PublishJsonAsync<T>(
