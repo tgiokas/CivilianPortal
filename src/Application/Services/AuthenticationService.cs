@@ -31,6 +31,23 @@ public class AuthenticationService : IAuthenticationService
         _logger = logger;
     }
 
+
+    /// Simple username/password login via Keycloak Direct Access Grant.
+    /// Uses the same JWT claim parsing and auto-provisioning as OAuth2CallbackAsync.
+    public async Task<Result<LoginResponseDto>> LoginAsync(string username, string password)
+    {
+        // 1. Get token via Direct Access Grant (password grant)
+        var tokenResponse = await _keycloakClientAuth.GetUserAccessTokenAsync(username, password);
+        if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
+        {
+            _logger.LogWarning("Login failed for user {Username}", username);
+            return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
+        }
+
+        // 2. Parse claims from JWT (same as OAuth2Callback)
+        return await ProcessTokenAndProvisionCitizen(tokenResponse);
+    }
+
     /// OAuth2 callback handler
     /// 1. Exchange authorization code for tokens via Keycloak
     /// 2. Parse JWT claims (sub, email, name, taxisnet_id)
@@ -46,7 +63,42 @@ public class AuthenticationService : IAuthenticationService
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
         }
 
-        // 2. Parse claims from JWT
+        // 2. Parse claims and provision citizen (shared logic)
+        return await ProcessTokenAndProvisionCitizen(tokenResponse);
+    }
+
+    public async Task<Result<RefreshResponseDto>> RefreshTokenAsync(string refreshToken)
+    {
+        var tokenResponse = await _keycloakClientAuth.RefreshTokenAsync(refreshToken);
+        if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
+        {
+            return _errors.Fail<RefreshResponseDto>(ErrorCodes.PORTAL.RefreshFailed);
+        }
+
+        return Result<RefreshResponseDto>.Ok(new RefreshResponseDto
+        {
+            Access_token = tokenResponse.Access_token,
+            Refresh_token = tokenResponse.Refresh_token ?? string.Empty,
+            Expires_in = tokenResponse.Expires_in
+        });
+    }
+
+    public async Task<Result<bool>> LogoutAsync(string refreshToken)
+    {
+        var result = await _keycloakClientAuth.LogoutAsync(refreshToken);
+        if (!result)
+        {
+            return _errors.Fail<bool>(ErrorCodes.PORTAL.LogoutFailed);
+        }
+
+        return Result<bool>.Ok(true, message: "Logout successful");
+    }
+
+
+    // Private: shared logic for JWT parsing + citizen auto-provisioning
+    // Used by both LoginAsync (password grant) and OAuth2CallbackAsync (code grant)
+    private async Task<Result<LoginResponseDto>> ProcessTokenAndProvisionCitizen(TokenDto tokenResponse)
+    {
         var handler = new JwtSecurityTokenHandler();
         var jwtToken = handler.ReadJwtToken(tokenResponse.Access_token);
 
@@ -132,32 +184,5 @@ public class AuthenticationService : IAuthenticationService
                 LastName = dbCitizen.LastName
             }
         });
-    }
-
-    public async Task<Result<RefreshResponseDto>> RefreshTokenAsync(string refreshToken)
-    {
-        var tokenResponse = await _keycloakClientAuth.RefreshTokenAsync(refreshToken);
-        if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
-        {
-            return _errors.Fail<RefreshResponseDto>(ErrorCodes.PORTAL.RefreshFailed);
-        }
-
-        return Result<RefreshResponseDto>.Ok(new RefreshResponseDto
-        {
-            Access_token = tokenResponse.Access_token,
-            Refresh_token = tokenResponse.Refresh_token ?? string.Empty,
-            Expires_in = tokenResponse.Expires_in
-        });
-    }
-
-    public async Task<Result<bool>> LogoutAsync(string refreshToken)
-    {
-        var result = await _keycloakClientAuth.LogoutAsync(refreshToken);
-        if (!result)
-        {
-            return _errors.Fail<bool>(ErrorCodes.PORTAL.LogoutFailed);
-        }
-
-        return Result<bool>.Ok(true, message: "Logout successful");
     }
 }

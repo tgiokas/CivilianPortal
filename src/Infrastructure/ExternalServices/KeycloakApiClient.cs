@@ -69,6 +69,33 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
         return JsonSerializer.Deserialize<TokenDto>(json, JsonOptions);
     }
 
+    /// Simple login via Keycloak Direct Access Grant (Resource Owner Password Credentials).
+    /// Requires "Direct Access Grants" enabled on the Keycloak client.
+    public async Task<TokenDto?> GetUserAccessTokenAsync(string username, string password)
+    {
+        var parameters = new Dictionary<string, string>
+        {
+            ["grant_type"] = "password",           
+            ["client_id"] = _clientId,
+            ["client_secret"] = _clientSecret,           
+            ["username"] = username,
+            ["password"] = password
+        };
+
+        var content = new FormUrlEncodedContent(parameters);
+        var request = new HttpRequestMessage(HttpMethod.Post, tokenEndpoint)
+        {
+            Content = content
+        };
+
+        var response = await SendRequestAsync(request);
+        if (!response.IsSuccessStatusCode)
+            return null;
+
+        var jsonResponse = await response.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<TokenDto>(jsonResponse);
+    }
+
     /// Refresh the access token using the refresh token.
     public async Task<TokenDto?> RefreshTokenAsync(string refreshToken)
     {
