@@ -31,7 +31,6 @@ public class AuthenticationService : IAuthenticationService
         _logger = logger;
     }
 
-
     /// Simple username/password login via Keycloak Direct Access Grant.
     /// Uses the same JWT claim parsing and auto-provisioning as OAuth2CallbackAsync.
     public async Task<Result<LoginResponseDto>> LoginAsync(string username, string password)
