@@ -9,30 +9,30 @@ public class KafkaSettings
     public string BootstrapServers { get; set; } = string.Empty;
 
     // Base delay before reconnecting to a broker
-    public int ReconnectBackoffMs { get; set; }
+    public int ReconnectBackoffMs { get; set; } = 100;
 
     // Maximum delay when exponential backoff applies
-    public int ReconnectBackoffMaxMs { get; set; }   
+    public int ReconnectBackoffMaxMs { get; set; } = 10000;
 
     // Time allowed to establish initial TCP connection
-    public int SocketConnectionSetupTimeoutMs { get; set; }
+    public int SocketConnectionSetupTimeoutMs { get; set; } = 30000;
 
     // How long to wait for socket operations before failing
-    public int SocketTimeoutMs { get; set; }
+    public int SocketTimeoutMs { get; set; } = 60000;
 
 
     // Producer     
-    public string SubmittedTopic { get; set; } = string.Empty;    
+    public string SubmittedTopic { get; set; } = string.Empty;
     public string NotificationTopic { get; set; } = string.Empty;
 
     // Wait between retries to avoid hammering the broker
-    public int RetryBackoffMs { get; set; }
+    public int RetryBackoffMs { get; set; } = 100;
 
     // Max time broker has to respond to produce request
-    public int RequestTimeoutMs { get; set; }
+    public int RequestTimeoutMs { get; set; } = 30000;
 
     // Max time before message is considered failed (client side)
-    public int MessageTimeoutMs { get; set; }
+    public int MessageTimeoutMs { get; set; } = 300000;
 
 
     // Consumer
@@ -43,10 +43,10 @@ public class KafkaSettings
     public AutoOffsetReset AutoOffsetReset { get; set; } = AutoOffsetReset.Earliest;
 
     // How long the broker waits for a heartbeat before removing consumer from group
-    public int SessionTimeoutMs { get; set; }
+    public int SessionTimeoutMs { get; set; } = 45000;
 
     // Max time between Consume() calls before consumer is considered stuck
-    public int MaxPollIntervalMs { get; set; }
+    public int MaxPollIntervalMs { get; set; } = 300000;
 
     public static KafkaSettings BindFromConfiguration(IConfiguration configuration)
     {
@@ -62,7 +62,7 @@ public class KafkaSettings
 
             // Producer settings
             SubmittedTopic = configuration["PORTAL_KAFKA_SUBMITTED_TOPIC"]
-                ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_SUBMITTED_TOPIC is not set."),            
+                ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_SUBMITTED_TOPIC is not set."),
             NotificationTopic = configuration["PORTAL_KAFKA_NOTIFICATION_TOPIC"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_NOTIFICATION_TOPIC is not set."),
             RetryBackoffMs = ParseInt(configuration, "PORTAL_KAFKA_RETRY_BACKOFF_MS"),
