@@ -27,4 +27,7 @@ RUN dotnet publish "./CitizenPortal.Api.csproj" -c $BUILD_CONFIGURATION -o /app/
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+COPY /error-codes/errors.json /app/errors.json
+
 ENTRYPOINT ["dotnet", "CitizenPortal.Api.dll"]

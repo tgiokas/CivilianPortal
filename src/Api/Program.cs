@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-
+using DotNetEnv;
 using Serilog;
 
 using CitizenPortal.Api.Middlewares;
@@ -10,6 +10,9 @@ using CitizenPortal.Application;
 using CitizenPortal.Application.Configuration;
 using CitizenPortal.Infrastructure;
 using CitizenPortal.Infrastructure.Database;
+
+Env.Load();
+Env.TraversePath().Load();
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
