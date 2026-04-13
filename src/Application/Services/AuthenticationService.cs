@@ -32,17 +32,10 @@ public class AuthenticationService : IAuthenticationService
     }
 
     /// Simple username/password login via Keycloak Direct Access Grant.
-    /// Uses the same JWT claim parsing and auto-provisioning as OAuth2CallbackAsync.
-    /// <summary>
-    /// Simple login with auto-registration for testing before GSIS integration.
-    /// Flow:
-    ///   1. Try password grant against Keycloak
-    ///   2. If that fails → create user in Keycloak via Admin API → retry password grant
-    ///   3. Parse JWT claims + auto-provision citizen in our DB
-    /// </summary>
+    /// Simple login with auto-registration for testing before GSIS integration.   
     public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request)
     {
-        // 1. Try to authenticate with password grant (user may already exist)
+
         var tokenResponse = await _keycloakClientAuth.GetUserAccessTokenAsync(
             request.Username, request.Password);
 
@@ -51,49 +44,7 @@ public class AuthenticationService : IAuthenticationService
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
         }
 
-        // 2. If authentication failed → user probably doesn't exist → create them
-        if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
-        {
-            _logger.LogInformation(
-                "Password grant failed for {Username}. Attempting to create user in Keycloak...",
-                request.Username);
-
-            // Validate required fields for registration
-            if (string.IsNullOrWhiteSpace(request.Email))
-            {
-                return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
-            }
-
-            // Create user in Keycloak via Admin REST API
-            var keycloakUserId = await _keycloakClientAuth.CreateUserInKeycloakAsync(
-                request.Username,
-                request.Email,
-                request.Password,
-                request.FirstName,
-                request.LastName);
-
-            if (string.IsNullOrWhiteSpace(keycloakUserId))
-            {
-                _logger.LogError("Failed to create user {Username} in Keycloak", request.Username);
-                return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.UserCreateFailed);
-            }
-
-            _logger.LogInformation("User {Username} created in Keycloak with ID {Id}",
-                request.Username, keycloakUserId);
-
-            // Retry password grant now that the user exists
-            tokenResponse = await _keycloakClientAuth.GetUserAccessTokenAsync(
-                request.Username, request.Password);
-
-            if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
-            {
-                _logger.LogError(
-                    "Password grant still failed after creating user {Username}", request.Username);
-                return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
-            }
-        }
-
-        // 3. Parse JWT claims and auto-provision citizen in our DB
+        // Parse JWT claims and auto-provision citizen in our DB
         return await ProcessTokenAndProvisionCitizen(tokenResponse);
     }
 

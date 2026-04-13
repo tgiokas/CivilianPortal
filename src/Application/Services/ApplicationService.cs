@@ -130,7 +130,7 @@ public class ApplicationService : IApplicationService
 
             _logger.LogInformation(
                 "Application {PublicId} submitted by citizen {KeycloakUserId} with {DocCount} documents. Outbox message created.",
-                application.PublicId, keycloakUserId, uploadedDocs.Count);
+                application.PublicId, request.KeycloakUserId, uploadedDocs.Count);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
@@ -142,7 +142,7 @@ public class ApplicationService : IApplicationService
         catch (Exception ex)
         {
             await transaction.RollbackAsync(cancellationToken);
-            _logger.LogError(ex, "Failed to save application for citizen {KeycloakUserId}", keycloakUserId);
+            _logger.LogError(ex, "Failed to save application for citizen {KeycloakUserId}", request.KeycloakUserId);
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreateFailed);
         }
     }
@@ -189,9 +189,7 @@ public class ApplicationService : IApplicationService
         });
     }
 
-    /// <summary>
     /// Called by the Kafka consumer when DMS publishes a protocol-assigned event.
-    /// </summary>
     public async Task<Result<bool>> UpdateStatusFromDmsAsync(ProtocolAssignedEvent protocolEvent)
     {
         var application = await _applicationRepo.GetByPublicIdAsync(protocolEvent.ApplicationPublicId);
