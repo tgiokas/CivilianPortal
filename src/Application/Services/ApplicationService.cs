@@ -103,7 +103,6 @@ public class ApplicationService : IApplicationService
 
             await _applicationRepo.AddAsync(application);
 
-            // Create outbox message in the same transaction
             var outboxEvent = new ApplicationSubmittedEvent
             {
                 ApplicationPublicId = application.PublicId,
@@ -123,8 +122,6 @@ public class ApplicationService : IApplicationService
             };
 
             await _outboxRepo.AddAsync(outboxMessage);
-
-            // Commit: both Application and OutboxMessage are saved atomically
             await _dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
@@ -141,9 +138,22 @@ public class ApplicationService : IApplicationService
         }
         catch (Exception ex)
         {
-            await transaction.RollbackAsync(cancellationToken);
-            _logger.LogError(ex, "Failed to save application for citizen {KeycloakUserId}", request.KeycloakUserId);
-            return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreateFailed);
+            _logger.LogError(ex, "DB transaction failed for citizen {KeycloakUserId}. Attempting to clean up {DocCount} uploaded files.",
+                request.KeycloakUserId, uploadedDocs.Count);
+
+            // Compensating action: delete orphaned files from DMS.Storage
+            foreach (var doc in uploadedDocs)
+            {
+                var deleted = await _storageClient.DeleteFileAsync(doc.StorageFileId, cancellationToken);
+                if (!deleted)
+                {
+                    _logger.LogWarning(
+                        "Failed to clean up orphaned file {StorageFileId} ({FileName}). Manual cleanup may be required.",
+                        doc.StorageFileId, doc.FileName);
+                }
+            }
+
+            return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreationFailed);
         }
     }
 

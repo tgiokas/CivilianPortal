@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Infrastructure.ApiClients;
 using CitizenPortal.Application.Dtos;
+using System.Net.Http.Json;
 
 namespace CitizenPortal.Infrastructure.ExternalServices;
 
@@ -51,6 +52,25 @@ public class StorageApiClient : ApiClientBase, IStorageApiClient
         }
 
         return new StorageUploadResult(result.FileId, fileName, result.FileSize);
+    }
+
+    public async Task<bool> DeleteFileAsync(string storageFileId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/storage/delete")
+            {
+                Content = JsonContent.Create(new { bucket = "citizen-portal", key = storageFileId })
+            };
+
+            var response = await SendRequestAsync(request, cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete orphaned file {StorageFileId} from DMS.Storage", storageFileId);
+            return false;
+        }
     }
 
 }

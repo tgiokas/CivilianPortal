@@ -1,10 +1,8 @@
 namespace CitizenPortal.Domain.Entities;
 
-/// <summary>
 /// Outbox Pattern: Events are written to this table in the same DB transaction 
 /// as the domain data. A background worker picks them up and publishes to Kafka.
 /// This guarantees: both DB insert and Kafka message succeed or both fail.
-/// </summary>
 public class OutboxMessage
 {
     public int Id { get; set; }
