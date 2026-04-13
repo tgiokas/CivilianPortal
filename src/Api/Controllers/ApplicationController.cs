@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using CitizenPortal.Application.Interfaces;
@@ -9,7 +8,7 @@ namespace CitizenPortal.Api.Controllers;
 
 [ApiController]
 [Route("api/citizen/applications")]
-[Authorize(Roles = "citizen")]
+//[Authorize(Roles = "citizen")]
 public class ApplicationController : ControllerBase
 {
     private readonly IApplicationService _applicationService;
@@ -33,8 +32,7 @@ public class ApplicationController : ControllerBase
         if (keycloakUserId == Guid.Empty)
             return Unauthorized();
 
-        var result = await _applicationService.SubmitApplicationAsync(
-            keycloakUserId, request, files, cancellationToken);
+        var result = await _applicationService.SubmitApplicationAsync(request, files, cancellationToken);
 
         if (!result.Success)
             return Accepted(result);

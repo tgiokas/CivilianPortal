@@ -18,6 +18,32 @@ public class AuthenticationController : ControllerBase
         _configuration = configuration;
     }
 
+
+    /// Simple username/password login via Keycloak Direct Access Grant.
+    /// POST /authentication/login
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(Result<string>.Fail("Username and password are required."));
+        }
+
+        var result = await _authenticationService.LoginAsync(request);
+        if (result == null || !result.Success)
+        {
+            return Accepted(result);
+        }
+
+        // Set refresh token as HttpOnly cookie (same pattern as OAuth2Callback)
+        if (!string.IsNullOrWhiteSpace(result.Data?.RefreshToken))
+        {
+            AppendRefreshTokenCookie(result.Data.RefreshToken);
+        }
+
+        return Ok(result);
+    }
+
     /// OAuth2 callback — GSIS/TaxisNet redirects here after citizen authenticates.
     /// Exchanges the authorization code for tokens and auto-provisions the citizen
     /// in our DB if they don't exist yet (same pattern as DMS.Auth).
@@ -90,6 +116,7 @@ public class AuthenticationController : ControllerBase
     {
         var refreshToken = request?.RefreshToken;
 
+        // Fallback: try reading from HttpOnly cookie
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
             refreshToken = Request.Cookies["refresh_token"];
@@ -102,7 +129,7 @@ public class AuthenticationController : ControllerBase
 
         var result = await _authenticationService.LogoutAsync(refreshToken);
 
-        // Clear the cookie
+        // Clear the refresh cookie
         Response.Cookies.Delete("refresh_token");
 
         if (!result.Success)

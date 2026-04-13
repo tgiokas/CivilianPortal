@@ -39,14 +39,13 @@ public class ApplicationService : IApplicationService
         _logger = logger;
     }
 
-    public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(
-        Guid keycloakUserId,
+    public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(       
         ApplicationCreateDto request,
         List<IFormFile>? files,
         CancellationToken cancellationToken = default)
     {
         // 1. Get or verify citizen user
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdAsync(keycloakUserId);
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdAsync(request.KeycloakUserId);
         if (citizenUser is null)
         {
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.UserNotFound);

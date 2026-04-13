@@ -94,7 +94,7 @@ services:
 
   # ==================== CitizenPortal Database ====================
   citizen-portal-db:
-    image: postgres:16-alpine
+    image: postgres:15.2
     container_name: citizen-portal-db
     env_file:
       - .env

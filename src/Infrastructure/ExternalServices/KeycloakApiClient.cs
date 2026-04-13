@@ -6,6 +6,7 @@ using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Infrastructure.ApiClients;
+using System.Text;
 
 namespace CitizenPortal.Infrastructure.ExternalServices;
 
@@ -139,5 +140,93 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
 
         var response = await SendRequestAsync(request);
         return response.IsSuccessStatusCode;
+    }
+
+    public async Task<string?> CreateUserInKeycloakAsync(string username, string email, string password,
+        string? firstName = null, string? lastName = null)
+    {
+        // 1. Get admin token via client_credentials
+        var adminToken = await GetAdminAccessTokenAsync();
+        if (string.IsNullOrWhiteSpace(adminToken))
+        {
+            _logger.LogError("Failed to obtain Keycloak admin token for user creation");
+            return null;
+        }
+
+        // 2. Build the Keycloak user representation
+        var userPayload = new
+        {
+            username = username,
+            email = email,
+            firstName = firstName ?? string.Empty,
+            lastName = lastName ?? string.Empty,
+            enabled = true,
+            emailVerified = true,
+            credentials = new[]
+            {
+                new { type = "password", value = password, temporary = false }
+            }
+        };
+
+        var jsonPayload = JsonSerializer.Serialize(userPayload);
+        var requestUrl = $"{_keycloakServerUrl}/admin/realms/{_realm}/users";
+
+        var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
+        {
+            Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
+        };
+        request.Headers.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", adminToken);
+
+        var response = await SendRequestAsync(request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Failed to create user in Keycloak: {StatusCode} {Body}",
+                (int)response.StatusCode, error);
+            return null;
+        }
+
+        // Keycloak returns 201 with Location header: .../admin/realms/{realm}/users/{userId}
+        var locationHeader = response.Headers.Location;
+        if (locationHeader != null)
+        {
+            var segments = locationHeader.AbsolutePath.Split('/');
+            var createdUserId = segments.LastOrDefault();
+            _logger.LogInformation("Created Keycloak user {Username} with ID {UserId}",
+                username, createdUserId);
+            return createdUserId;
+        }
+
+        _logger.LogWarning("User created but no Location header returned");
+        return null;
+    }
+
+    private async Task<string?> GetAdminAccessTokenAsync()
+    {
+        var content = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("grant_type", "client_credentials"),
+            new KeyValuePair<string, string>("client_id", _clientId),
+            new KeyValuePair<string, string>("client_secret", _clientSecret),
+        });
+
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"{_keycloakServerUrl}/realms/{_realm}/protocol/openid-connect/token")
+        {
+            Content = content
+        };
+
+        var response = await SendRequestAsync(request);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Failed to get Keycloak admin token: {Status}", response.StatusCode);
+            return null;
+        }
+
+        var jsonResponse = await response.Content.ReadAsStringAsync();
+        var token = JsonSerializer.Deserialize<TokenDto>(jsonResponse);
+        return token?.Access_token;
     }
 }

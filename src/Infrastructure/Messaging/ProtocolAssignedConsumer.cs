@@ -42,7 +42,7 @@ public class ProtocolAssignedConsumer : BackgroundService
             SocketConnectionSetupTimeoutMs = settings.SocketConnectionSetupTimeoutMs,
             SocketTimeoutMs = settings.SocketTimeoutMs,            
             
-            GroupId = settings.ConsumerGroup,
+            GroupId = settings.GroupId,
             AutoOffsetReset = settings.AutoOffsetReset,
             EnableAutoCommit = false,
             SessionTimeoutMs = settings.SessionTimeoutMs,

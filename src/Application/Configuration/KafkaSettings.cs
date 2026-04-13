@@ -37,7 +37,7 @@ public class KafkaSettings
 
     // Consumer
     public string ProtocolTopic { get; set; } = string.Empty;
-    public string ConsumerGroup { get; set; } = string.Empty;
+    public string GroupId { get; set; } = string.Empty;
 
     // Offset reset strategy
     public AutoOffsetReset AutoOffsetReset { get; set; } = AutoOffsetReset.Earliest;
@@ -72,7 +72,7 @@ public class KafkaSettings
             // Consumer settings
             ProtocolTopic = configuration["PORTAL_KAFKA_PROTOCOL_TOPIC"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_PROTOCOL_TOPIC is not set."),
-            ConsumerGroup = configuration["PORTAL_KAFKA_CONSUMER_GROUP"]
+            GroupId = configuration["PORTAL_KAFKA_CONSUMER_GROUP"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_CONSUMER_GROUP is not set."),
             AutoOffsetReset = Enum.TryParse(configuration["PORTAL_KAFKA_AUTO_OFFSET_RESET"], true, out AutoOffsetReset offset)
                 ? offset
