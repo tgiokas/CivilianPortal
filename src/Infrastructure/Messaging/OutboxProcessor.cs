@@ -7,7 +7,7 @@ using CitizenPortal.Domain.Interfaces;
 
 namespace CitizenPortal.Infrastructure.Messaging;
 
-/// <summary>
+
 /// Background worker that polls the OutboxMessages table and publishes
 /// pending messages to Kafka. This completes the Outbox Pattern:
 /// 
@@ -18,7 +18,7 @@ namespace CitizenPortal.Infrastructure.Messaging;
 /// 
 /// If Kafka is down, messages accumulate in the outbox and get retried.
 /// If the service restarts, unprocessed messages are picked up again.
-/// </summary>
+
 public class OutboxProcessor : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
