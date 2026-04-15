@@ -32,7 +32,7 @@ public class ApplicationController : ControllerBase
         if (keycloakUserId == Guid.Empty)
             return Unauthorized();
 
-        var result = await _applicationService.SubmitApplicationAsync(request, files, cancellationToken);
+        var result = await _applicationService.SubmitApplicationAsync(keycloakUserId, request, files, cancellationToken);
 
         if (!result.Success)
             return Accepted(result);

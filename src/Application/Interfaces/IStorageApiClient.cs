@@ -4,6 +4,9 @@ namespace CitizenPortal.Application.Interfaces;
 
 public interface IStorageApiClient
 {
-    Task<StorageUploadResult?> UploadFileAsync(Stream fileStream, string fileName, string contentType, CancellationToken cancellationToken = default);
-    Task<bool> DeleteFileAsync(string storageFileId, CancellationToken cancellationToken = default);
+    Task<StorageUploadResult?> UploadFileAsync(
+         string bucket, string key,
+         Stream fileStream, string fileName, string contentType,
+         CancellationToken cancellationToken = default);
+    Task<bool> DeleteFileAsync(string bucket, string key, CancellationToken cancellationToken = default);
 }

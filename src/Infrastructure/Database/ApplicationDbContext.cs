@@ -61,7 +61,8 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         {
             entity.ToTable("ApplicationDocuments");
             entity.HasKey(d => d.Id);
-            entity.Property(d => d.StorageFileId).IsRequired().HasMaxLength(200);
+            entity.Property(d => d.StorageBucket).IsRequired().HasMaxLength(200);
+            entity.Property(d => d.StorageKey).IsRequired().HasMaxLength(500);
             entity.Property(d => d.FileName).IsRequired().HasMaxLength(500);
             entity.Property(d => d.ContentType).IsRequired().HasMaxLength(100);
 

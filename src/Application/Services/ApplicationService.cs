@@ -39,17 +39,25 @@ public class ApplicationService : IApplicationService
         _logger = logger;
     }
 
-    public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(       
+    // Replace the entire method body in src/Application/Services/ApplicationService.cs
+
+    private const string CitizenPortalBucket = "citizen-portal";
+
+    public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(
+        Guid keycloakUserId,
         ApplicationCreateDto request,
         List<IFormFile>? files,
         CancellationToken cancellationToken = default)
     {
         // 1. Get or verify citizen user
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdAsync(request.KeycloakUserId);
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdAsync(keycloakUserId);
         if (citizenUser is null)
         {
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.UserNotFound);
         }
+
+        // Generate PublicId early so we can use it in the storage key
+        var applicationPublicId = Guid.NewGuid();
 
         // 2. Upload files to DMS.Storage (before transaction — external call)
         var uploadedDocs = new List<ApplicationDocument>();
@@ -57,21 +65,30 @@ public class ApplicationService : IApplicationService
         {
             foreach (var file in files)
             {
+                // Construct deterministic key: applications/{publicId}/{filename}
+                var storageKey = $"applications/{applicationPublicId}/{file.FileName}";
+
                 try
                 {
                     using var stream = file.OpenReadStream();
                     var uploadResult = await _storageClient.UploadFileAsync(
+                        CitizenPortalBucket, storageKey,
                         stream, file.FileName, file.ContentType, cancellationToken);
 
                     if (uploadResult is null)
                     {
                         _logger.LogError("Failed to upload file {FileName} to DMS.Storage", file.FileName);
+
+                        // Compensate: clean up files already uploaded in this batch
+                        await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
+
                         return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.FileUploadFailed);
                     }
 
                     uploadedDocs.Add(new ApplicationDocument
                     {
-                        StorageFileId = uploadResult.StorageFileId,
+                        StorageBucket = uploadResult.Bucket,
+                        StorageKey = uploadResult.Key,
                         FileName = file.FileName,
                         ContentType = file.ContentType,
                         FileSize = uploadResult.FileSize
@@ -80,19 +97,22 @@ public class ApplicationService : IApplicationService
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Storage service error uploading {FileName}", file.FileName);
+
+                    // Compensate: clean up files already uploaded in this batch
+                    await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
+
                     return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.StorageServiceUnavailable);
                 }
             }
         }
 
         // 3. Single DB transaction: save Application + Documents + OutboxMessage
-        //    This is the Outbox Pattern — if any of these fail, everything rolls back.
-        //    No Kafka message is sent unless the DB commit succeeds.
         using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
         try
         {
             var application = new Domain.Entities.Application
             {
+                PublicId = applicationPublicId,
                 CitizenUserId = citizenUser.Id,
                 Subject = request.Subject,
                 Body = request.Body,
@@ -103,6 +123,7 @@ public class ApplicationService : IApplicationService
 
             await _applicationRepo.AddAsync(application);
 
+            // Create outbox message in the same transaction
             var outboxEvent = new ApplicationSubmittedEvent
             {
                 ApplicationPublicId = application.PublicId,
@@ -110,7 +131,11 @@ public class ApplicationService : IApplicationService
                 Body = application.Body,
                 Email = application.Email,
                 CitizenTaxisNetId = citizenUser.TaxisNetId,
-                StorageFileIds = uploadedDocs.Select(d => d.StorageFileId).ToList(),
+                Documents = uploadedDocs.Select(d => new StorageDocumentLocator
+                {
+                    Bucket = d.StorageBucket,
+                    Key = d.StorageKey
+                }).ToList(),
                 SubmittedAt = application.CreatedAt
             };
 
@@ -122,12 +147,13 @@ public class ApplicationService : IApplicationService
             };
 
             await _outboxRepo.AddAsync(outboxMessage);
+
             await _dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
 
             _logger.LogInformation(
                 "Application {PublicId} submitted by citizen {KeycloakUserId} with {DocCount} documents. Outbox message created.",
-                application.PublicId, request.KeycloakUserId, uploadedDocs.Count);
+                application.PublicId, keycloakUserId, uploadedDocs.Count);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
@@ -138,24 +164,16 @@ public class ApplicationService : IApplicationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "DB transaction failed for citizen {KeycloakUserId}. Attempting to clean up {DocCount} uploaded files.",
-                request.KeycloakUserId, uploadedDocs.Count);
+            _logger.LogError(ex,
+                "DB transaction failed for citizen {KeycloakUserId}. Attempting to clean up {DocCount} uploaded files.",
+                keycloakUserId, uploadedDocs.Count);
 
             // Compensating action: delete orphaned files from DMS.Storage
-            foreach (var doc in uploadedDocs)
-            {
-                var deleted = await _storageClient.DeleteFileAsync(doc.StorageFileId, cancellationToken);
-                if (!deleted)
-                {
-                    _logger.LogWarning(
-                        "Failed to clean up orphaned file {StorageFileId} ({FileName}). Manual cleanup may be required.",
-                        doc.StorageFileId, doc.FileName);
-                }
-            }
+            await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
 
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreationFailed);
         }
-    }
+    }    
 
     public async Task<Result<ApplicationDto>> GetApplicationAsync(Guid keycloakUserId, Guid publicId)
     {
@@ -170,8 +188,7 @@ public class ApplicationService : IApplicationService
         return Result<ApplicationDto>.Ok(MapToDto(application));
     }
 
-    public async Task<Result<PagedResult<ApplicationDto>>> GetApplicationsAsync(
-        Guid keycloakUserId, ApplicationQueryParams queryParams)
+    public async Task<Result<PagedResult<ApplicationDto>>> GetApplicationsAsync(Guid keycloakUserId, ApplicationQueryParams queryParams)
     {
         var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdAsync(keycloakUserId);
         if (citizenUser is null)
@@ -214,13 +231,40 @@ public class ApplicationService : IApplicationService
             ? parsed
             : ApplicationStatus.Registered;
 
+        // Update document locations if the backend moved the files
+        if (protocolEvent.Documents.Count > 0)
+        {
+            var newLocations = protocolEvent.Documents
+                .Select(d => (d.Bucket, d.Key))
+                .ToList();
+
+            await _applicationRepo.UpdateDocumentLocationsAsync(application.Id, newLocations);
+        }
+
         await _applicationRepo.UpdateStatusAsync(application.Id, newStatus, protocolEvent.ProtocolNumber);
 
         _logger.LogInformation(
-            "Application {PublicId} updated: status={Status}, protocol={ProtocolNumber}",
-            protocolEvent.ApplicationPublicId, newStatus, protocolEvent.ProtocolNumber);
+            "Application {PublicId} updated: status={Status}, protocol={ProtocolNumber}, {DocCount} document locations updated.",
+            protocolEvent.ApplicationPublicId, newStatus, protocolEvent.ProtocolNumber,
+            protocolEvent.Documents.Count);
 
         return Result<bool>.Ok(true, "Status updated");
+    }
+
+    private async Task CleanupUploadedFilesAsync(List<ApplicationDocument> uploadedDocs, CancellationToken cancellationToken)
+    {
+        foreach (var doc in uploadedDocs)
+        {
+            var deleted = await _storageClient.DeleteFileAsync(
+                doc.StorageBucket, doc.StorageKey, cancellationToken);
+
+            if (!deleted)
+            {
+                _logger.LogWarning(
+                    "Failed to clean up orphaned file {Bucket}/{Key} ({FileName}). Manual cleanup may be required.",
+                    doc.StorageBucket, doc.StorageKey, doc.FileName);
+            }
+        }
     }
 
     private static ApplicationDto MapToDto(Domain.Entities.Application app) => new()
@@ -234,7 +278,8 @@ public class ApplicationService : IApplicationService
         CreatedAt = app.CreatedAt,
         Documents = app.Documents.Select(d => new ApplicationDocumentDto
         {
-            StorageFileId = d.StorageFileId,
+            StorageBucket = d.StorageBucket,
+            StorageKey = d.StorageKey,
             FileName = d.FileName,
             ContentType = d.ContentType,
             FileSize = d.FileSize

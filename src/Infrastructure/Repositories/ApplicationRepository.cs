@@ -64,4 +64,26 @@ public class ApplicationRepository : IApplicationRepository
         }
         await _dbContext.SaveChangesAsync();
     }
+
+    public async Task UpdateDocumentLocationsAsync(int applicationId, List<(string Bucket, string Key)> newLocations)
+    {
+        var documents = await _dbContext.ApplicationDocuments
+            .Where(d => d.ApplicationId == applicationId)
+            .ToListAsync();
+
+        foreach (var doc in documents)
+        {
+            var currentFileName = Path.GetFileName(doc.StorageKey);
+            var newLocation = newLocations.FirstOrDefault(
+                nl => Path.GetFileName(nl.Key) == currentFileName);
+
+            if (newLocation != default)
+            {
+                doc.StorageBucket = newLocation.Bucket;
+                doc.StorageKey = newLocation.Key;
+            }
+        }
+
+        await _dbContext.SaveChangesAsync();
+    }
 }

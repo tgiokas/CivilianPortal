@@ -6,7 +6,6 @@ using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Infrastructure.ApiClients;
-using System.Text;
 
 namespace CitizenPortal.Infrastructure.ExternalServices;
 
@@ -14,7 +13,6 @@ namespace CitizenPortal.Infrastructure.ExternalServices;
 /// Handles Authorization Code, Refresh, and Logout flows for citizen users.
 public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
 {
-    private readonly string _keycloakServerUrl;
     private readonly string _realm;
     private readonly string _clientId;
     private readonly string _clientSecret;
@@ -36,7 +34,6 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
     {
         var settings = keycloakOptions.Value;
 
-        _keycloakServerUrl = settings.BaseUrl;
         _realm = settings.Realm;
         _clientId = settings.ClientId;
         _clientSecret = settings.ClientSecret;
