@@ -1,6 +1,6 @@
 {
   "id" : "589396a3-0fef-4615-ba31-c769d5ff0af2",
-  "realm" : "CivilianRealm",
+  "realm" : "CitizenRealm",
   "notBefore" : 0,
   "defaultSignatureAlgorithm" : "RS256",
   "revokeRefreshToken" : false,
@@ -72,7 +72,7 @@
       "attributes" : { }
     }, {
       "id" : "9d5a30c1-627d-486c-99e9-d984ee344c0a",
-      "name" : "default-roles-Civilianrealm",
+      "name" : "default-roles-citizenrealm",
       "description" : "${role_default-roles}",
       "composite" : true,
       "composites" : {
@@ -94,7 +94,7 @@
       "attributes" : { }
     } ],
     "client" : {
-      "civilian-app" : [ {
+      "citizen-app" : [ {
         "id" : "72aa3735-528d-4e11-876f-843d684d363f",
         "name" : "testrole",
         "description" : "testrole descr",
@@ -113,7 +113,7 @@
       }, {
         "id" : "f3aa993d-eb26-4c94-8bae-ab650008777a",
         "name" : "viewer",
-        "description" : "Viewer role for the civilian-app client",
+        "description" : "Viewer role for the citizen-app client",
         "composite" : false,
         "clientRole" : true,
         "containerId" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
@@ -379,7 +379,7 @@
   "groups" : [ ],
   "defaultRole" : {
     "id" : "9d5a30c1-627d-486c-99e9-d984ee344c0a",
-    "name" : "default-roles-Civilianrealm",
+    "name" : "default-roles-citizenrealm",
     "description" : "${role_default-roles}",
     "composite" : true,
     "clientRole" : false,
@@ -419,18 +419,18 @@
   "webAuthnPolicyPasswordlessExtraOrigins" : [ ],
   "users" : [ {
     "id" : "28896f5b-85c5-4998-84c7-68af7a05c596",
-    "username" : "service-account-civilian-app",
+    "username" : "service-account-citizen-app",
     "emailVerified" : false,
     "enabled" : true,
     "createdTimestamp" : 1759306962269,
     "totp" : false,
-    "serviceAccountClientId" : "civilian-app",
+    "serviceAccountClientId" : "citizen-app",
     "credentials" : [ ],
     "disableableCredentialTypes" : [ ],
     "requiredActions" : [ ],
-    "realmRoles" : [ "default-roles-Civilianrealm" ],
+    "realmRoles" : [ "default-roles-citizenrealm" ],
     "clientRoles" : {
-      "civilian-app" : [ "uma_protection" ],
+      "citizen-app" : [ "uma_protection" ],
       "realm-management" : [ "view-users", "query-users", "manage-users", "manage-clients" ]
     },
     "notBefore" : 0,
@@ -455,7 +455,7 @@
     "requiredActions" : [ ],
     "realmRoles" : [ "user" ],
     "clientRoles" : {
-      "civilian-app" : [ "viewer" ]
+      "citizen-app" : [ "viewer" ]
     },
     "notBefore" : 0,
     "groups" : [ ]
@@ -475,12 +475,12 @@
     "clientId" : "account",
     "name" : "${client_account}",
     "rootUrl" : "${authBaseUrl}",
-    "baseUrl" : "/realms/CivilianRealm/account/",
+    "baseUrl" : "/realms/citizenRealm/account/",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "/realms/CivilianRealm/account/*" ],
+    "redirectUris" : [ "/realms/citizenRealm/account/*" ],
     "webOrigins" : [ ],
     "notBefore" : 0,
     "bearerOnly" : false,
@@ -506,12 +506,12 @@
     "clientId" : "account-console",
     "name" : "${client_account-console}",
     "rootUrl" : "${authBaseUrl}",
-    "baseUrl" : "/realms/CivilianRealm/account/",
+    "baseUrl" : "/realms/citizenRealm/account/",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "/realms/CivilianRealm/account/*" ],
+    "redirectUris" : [ "/realms/citizenRealm/account/*" ],
     "webOrigins" : [ ],
     "notBefore" : 0,
     "bearerOnly" : false,
@@ -573,7 +573,7 @@
     "optionalClientScopes" : [ "address", "phone", "organization", "offline_access", "microprofile-jwt" ]
   }, {
     "id" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
-    "clientId" : "civilian-app",
+    "clientId" : "citizen-app",
     "name" : "",
     "description" : "",
     "rootUrl" : "",
@@ -632,7 +632,7 @@
       "protocolMapper" : "oidc-audience-mapper",
       "consentRequired" : false,
       "config" : {
-        "included.client.audience" : "civilian-app",
+        "included.client.audience" : "citizen-app",
         "access.token.claim" : "true"
       }
     }, {
@@ -725,12 +725,12 @@
     "clientId" : "security-admin-console",
     "name" : "${client_security-admin-console}",
     "rootUrl" : "${authAdminUrl}",
-    "baseUrl" : "/admin/CivilianRealm/console/",
+    "baseUrl" : "/admin/citizenRealm/console/",
     "surrogateAuthRequired" : false,
     "enabled" : true,
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
-    "redirectUris" : [ "/admin/CivilianRealm/console/*" ],
+    "redirectUris" : [ "/admin/citizenRealm/console/*" ],
     "webOrigins" : [ "+" ],
     "notBefore" : 0,
     "bearerOnly" : false,

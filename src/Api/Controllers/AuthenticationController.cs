@@ -48,8 +48,11 @@ public class AuthenticationController : ControllerBase
     /// in our DB if they don't exist yet (same pattern as DMS.Auth).
     /// Flow: GSIS login → Keycloak CitizenRealm → redirect with code → this endpoint
     [HttpGet("oauth2callback")]
-    public async Task<IActionResult> OAuth2Callback([FromQuery] string code)
+    public async Task<IActionResult> OAuth2Callback()
     {
+        var query = Request.Query;
+        var code = query["code"].ToString();
+
         if (string.IsNullOrWhiteSpace(code))
         {
             return BadRequest(Result<string>.Fail("Authorization code is required."));

@@ -9,19 +9,23 @@ services:
     env_file:
       - .env
     command:
-      - start-dev      
-      - --import-realm      
+      - start      
+      - --import-realm   
+      - --https-certificate-file=/opt/keycloak/certs/keycloak.crt
+      - --https-certificate-key-file=/opt/keycloak/certs/keycloak.key
+      - --https-port=8443
+      - --hostname-strict=false 
     depends_on:
       - keycloak-db
     #dev only
     ports:
-      - "8085:8080"     
+      - "8443:8443"     
     networks:
       - portal-network   
     volumes:
       - ./exports/realm-export.json:/opt/keycloak/data/import/realm-export.json
       - ./keycloak-providers/keycloak-gsis-providers.jar:/opt/keycloak/providers/keycloak-gsis-providers.jar
-      # - ./certs:/opt/keycloak/certs
+      - ./certs:/opt/keycloak/certs
 
   keycloak-db:
     image: postgres:15.2
@@ -133,6 +137,7 @@ services:
       - "5050:8080"
     networks:
       - portal-network
+      - storage-network
     volumes:
       - ./error-codes/errors.json:/app/errors.json:ro
 
@@ -142,5 +147,7 @@ volumes:
   kafka1-data:  
 
 networks:
-  portal-network:
+ portal-network:
     driver: bridge
+ storage-network:
+    external: true 
