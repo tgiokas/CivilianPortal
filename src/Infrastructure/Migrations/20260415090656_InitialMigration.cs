@@ -86,7 +86,8 @@ namespace CitizenPortal.Infrastructure.Migrations
                     id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     application_id = table.Column<int>(type: "integer", nullable: false),
-                    storage_file_id = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    storage_bucket = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    storage_key = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     file_name = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     content_type = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     file_size = table.Column<long>(type: "bigint", nullable: false),

@@ -17,10 +17,10 @@ public class StorageApiClient : ApiClientBase, IStorageApiClient
     };
 
     private static string storageUploadEndpoint
-        => $"/api/storage/upload";
+        => $"/Documents/upload";
 
     private static string storageDeleteEndpoint
-        => $"/api/storage/delete";
+        => $"/Documents/delete";
 
     public StorageApiClient(HttpClient httpClient, ILogger<StorageApiClient> logger)
         : base(httpClient, logger)

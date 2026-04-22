@@ -28,11 +28,7 @@ public class ApplicationController : ControllerBase
         [FromForm] List<IFormFile>? files,
         CancellationToken cancellationToken)
     {
-        var keycloakUserId = GetKeycloakUserId();
-        if (keycloakUserId == Guid.Empty)
-            return Unauthorized();
-
-        var result = await _applicationService.SubmitApplicationAsync(keycloakUserId, request, files, cancellationToken);
+        var result = await _applicationService.SubmitApplicationAsync(request.KeycloakUserId, request, files, cancellationToken);
 
         if (!result.Success)
             return Accepted(result);

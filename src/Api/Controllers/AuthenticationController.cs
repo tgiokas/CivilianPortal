@@ -18,7 +18,6 @@ public class AuthenticationController : ControllerBase
         _configuration = configuration;
     }
 
-
     /// Simple username/password login via Keycloak Direct Access Grant.
     /// POST /authentication/login
     [HttpPost("login")]
