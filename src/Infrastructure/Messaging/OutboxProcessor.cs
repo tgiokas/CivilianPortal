@@ -7,7 +7,6 @@ using CitizenPortal.Domain.Interfaces;
 
 namespace CitizenPortal.Infrastructure.Messaging;
 
-
 /// Background worker that polls the OutboxMessages table and publishes
 /// pending messages to Kafka. This completes the Outbox Pattern:
 /// 
@@ -80,10 +79,10 @@ public class OutboxProcessor : BackgroundService
                     new KeyValuePair<string, string>("x-event-type", message.EventType)
                 };
 
-                await _publisher.PublishJsonAsync(
+                await _publisher.PublishRawJsonAsync(
                     route: message.EventType,
                     key: message.Key ?? message.EventId.ToString(),
-                    payload: message.Payload,  // Already JSON-serialized
+                    jsonPayload: message.Payload,
                     headers: headers,
                     cancellationToken: cancellationToken);
 

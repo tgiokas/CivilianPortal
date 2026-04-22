@@ -68,9 +68,9 @@ public static class InfrastructureServiceRegistration
         {
             client.BaseAddress = new Uri(keycloakSettings.BaseUrl);
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-        });
+            {
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            });
 
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
         {

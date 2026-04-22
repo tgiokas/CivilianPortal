@@ -8,4 +8,11 @@ public interface IMessagePublisher
         T payload,
         IEnumerable<KeyValuePair<string, string>>? headers = null,
         CancellationToken cancellationToken = default);
+
+    Task PublishRawJsonAsync(
+        string route,
+        string key,
+        string jsonPayload,
+        IEnumerable<KeyValuePair<string, string>>? headers = null,
+        CancellationToken cancellationToken = default);
 }
