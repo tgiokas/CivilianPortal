@@ -18,10 +18,15 @@ namespace CitizenPortal.Infrastructure.Messaging;
 
 public class ProtocolAssignedConsumer : BackgroundService
 {
-    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConsumer<string, string> _consumer;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ProtocolAssignedConsumer> _logger;
     private readonly string _topic;
+
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     public ProtocolAssignedConsumer(
         IServiceScopeFactory scopeFactory,
@@ -40,8 +45,8 @@ public class ProtocolAssignedConsumer : BackgroundService
             ReconnectBackoffMs = settings.ReconnectBackoffMs,
             ReconnectBackoffMaxMs = settings.ReconnectBackoffMaxMs,
             SocketConnectionSetupTimeoutMs = settings.SocketConnectionSetupTimeoutMs,
-            SocketTimeoutMs = settings.SocketTimeoutMs,            
-            
+            SocketTimeoutMs = settings.SocketTimeoutMs,
+
             GroupId = settings.GroupId,
             AutoOffsetReset = settings.AutoOffsetReset,
             EnableAutoCommit = false,
@@ -54,23 +59,41 @@ public class ProtocolAssignedConsumer : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("ProtocolAssignedConsumer started. Subscribing to {Topic}", _topic);
-        _consumer.Subscribe(_topic);
+        // Yield to let the rest of the app start
+        await Task.Yield();
 
-        await Task.Run(async () =>
+        _logger.LogInformation("KafkaEmailConsumer starting. Topics: {Topics}", string.Join(",", _topics));
+
+        // Retry subscribe until Kafka is ready
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                _consumer.Subscribe(_topic);
+                _logger.LogInformation("Successfully subscribed to topics.");
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Kafka not ready, retrying in 5s...");
+                await Task.Delay(5000, stoppingToken);
+            }
+        }
+
+        try
         {
             while (!stoppingToken.IsCancellationRequested)
             {
+                ConsumeResult<string, string>? result = null;
+
                 try
                 {
-                    var result = _consumer.Consume(stoppingToken);
-                    if (result?.Message?.Value is null) continue;
+                    result = _consumer.Consume(TimeSpan.FromSeconds(5));
+                    if (result == null) continue;
 
-                    _logger.LogInformation("Received protocol assignment: {Key}", result.Message.Key);
+                    _logger.LogInformation("Message from topic {Topic} consumed", result.Topic);                  
 
-                    var payload = JsonSerializer.Deserialize<ProtocolAssignedEvent>(
-                        result.Message.Value,
-                        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                    var payload = ParsePayload(result.Message.Value);
 
                     if (payload is not null)
                     {
@@ -80,25 +103,68 @@ public class ProtocolAssignedConsumer : BackgroundService
                         await appService.UpdateStatusFromDmsAsync(payload);
                     }
 
-                    _consumer.Commit(result);
+                    _consumer.Commit(result); // success
+
+                    _logger.LogInformation("Offset commited at {TPO} ", result.TopicPartitionOffset);
                 }
                 catch (ConsumeException ex)
                 {
-                    _logger.LogError(ex, "Kafka consume error: {Reason}", ex.Error.Reason);
+                    _logger.LogError(ex, "ConsumeException at {TPO}: {Reason}",
+                        result?.TopicPartitionOffset, ex.Error.Reason);
+                    await Task.Delay(1000, stoppingToken);
                 }
-                catch (OperationCanceledException)
+                catch (JsonException ex)
                 {
-                    break;
+                    _logger.LogWarning(ex, "JSON error at {TPO}; committing to skip poison message.",
+                        result?.TopicPartitionOffset);
+                    if (result is not null) _consumer.Commit(result);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    // normal shutdown
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Unexpected error in ProtocolAssignedConsumer");
-                    await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                    _logger.LogError(ex, "Unhandled processing error at {TPO}. Backing off briefly.",
+                        result?.TopicPartitionOffset);
+                    await Task.Delay(1000, stoppingToken);
                 }
             }
-        }, stoppingToken);
+        }
+        finally
+        {
+            try { _consumer.Close(); } // leave group & commit last offsets
+            catch (Exception ex) { _logger.LogWarning(ex, "Error closing Kafka consumer."); }
+        }
 
-        _consumer.Close();
-        _logger.LogInformation("ProtocolAssignedConsumer stopped.");
+    }
+
+    private static ProtocolAssignedEvent? ParsePayload(string payload)
+    {
+        // 1) Envelope with typed Content
+        try
+        {
+            var env = JsonSerializer.Deserialize<KafkaMessage<ProtocolAssignedEvent>>(payload, JsonOpts);
+            if (env?.Content is not null) return env.Content;
+        }
+        catch { /* fall through */ }
+
+        // 2) Envelope with string Content
+        try
+        {
+            var envRaw = JsonSerializer.Deserialize<KafkaMessage<string>>(payload, JsonOpts);
+            if (!string.IsNullOrWhiteSpace(envRaw?.Content))
+                return JsonSerializer.Deserialize<ProtocolAssignedEvent>(envRaw.Content, JsonOpts);
+        }
+        catch { /* fall through */ }
+
+        // 3) Bare DTO
+        try
+        {
+            return JsonSerializer.Deserialize<ProtocolAssignedEvent>(payload, JsonOpts);
+        }
+        catch { }
+
+        return null;
     }
 }

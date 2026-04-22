@@ -75,6 +75,36 @@ public sealed class KafkaPublisher : IMessagePublisher, IDisposable
         }
     }
 
+    public async Task PublishRawJsonAsync(
+        string route,
+        string key,
+        string jsonPayload,
+        IEnumerable<KeyValuePair<string, string>>? headers = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var msg = new Message<string, string>
+            {
+                Key = key ?? string.Empty,
+                Value = jsonPayload,          // ← use as-is, no re-serialization
+                Headers = new Headers()
+            };
+
+            if (headers is not null)
+                foreach (var h in headers)
+                    msg.Headers.Add(h.Key, System.Text.Encoding.UTF8.GetBytes(h.Value));
+
+            var result = await _producer.ProduceAsync(route, msg, cancellationToken);
+            _logger.LogDebug("Produced to {TP} (offset {Offset})", result.TopicPartition, result.Offset);
+        }
+        catch (ProduceException<string, string> ex)
+        {
+            _logger.LogError(ex, "Kafka produce error: {Reason}", ex.Error.Reason);
+            throw;
+        }
+    }
+
     public void Dispose()
     {
         try { _producer.Flush(TimeSpan.FromSeconds(5)); }
