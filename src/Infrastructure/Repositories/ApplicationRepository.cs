@@ -15,14 +15,6 @@ public class ApplicationRepository : IApplicationRepository
         _dbContext = dbContext;
     }
 
-    public async Task<Domain.Entities.Application?> GetByIdAsync(int id)
-    {
-        return await _dbContext.Applications
-            .AsNoTracking()
-            .Include(a => a.Documents)
-            .FirstOrDefaultAsync(a => a.Id == id);
-    }
-
     public async Task<Domain.Entities.Application?> GetByPublicIdAsync(Guid publicId)
     {
         return await _dbContext.Applications
@@ -41,16 +33,10 @@ public class ApplicationRepository : IApplicationRepository
             .ToListAsync();
     }
 
+    // No SaveChanges — caller commits the transaction (outbox pattern).
     public async Task AddAsync(Domain.Entities.Application application)
     {
         await _dbContext.Applications.AddAsync(application);
-    }
-
-    public Task UpdateAsync(Domain.Entities.Application application)
-    {
-        application.ModifiedAt = DateTime.UtcNow;
-        _dbContext.Applications.Update(application);
-        return Task.CompletedTask;
     }
 
     public async Task UpdateStatusAsync(int applicationId, ApplicationStatus status, string? protocolNumber = null)
@@ -61,10 +47,10 @@ public class ApplicationRepository : IApplicationRepository
             application.Status = status;
             application.ProtocolNumber = protocolNumber ?? application.ProtocolNumber;
             application.ModifiedAt = DateTime.UtcNow;
+            
+            await _dbContext.SaveChangesAsync();
         }
-        await _dbContext.SaveChangesAsync();
     }
-
     public async Task UpdateDocumentLocationsAsync(int applicationId, List<(string Bucket, string Key)> newLocations)
     {
         var documents = await _dbContext.ApplicationDocuments

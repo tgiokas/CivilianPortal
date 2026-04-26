@@ -18,7 +18,7 @@ public class AuthenticationController : ControllerBase
         _configuration = configuration;
     }
 
-    /// Simple username/password login via Keycloak Direct Access Grant.
+    /// Simple username/password login via Keycloak Direct Access Grant. (For Testing)
     /// POST /authentication/login
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
@@ -33,8 +33,7 @@ public class AuthenticationController : ControllerBase
         {
             return Accepted(result);
         }
-
-        // Set refresh token as HttpOnly cookie (same pattern as OAuth2Callback)
+        
         if (!string.IsNullOrWhiteSpace(result.Data?.RefreshToken))
         {
             AppendRefreshTokenCookie(result.Data.RefreshToken);
@@ -62,46 +61,33 @@ public class AuthenticationController : ControllerBase
             ?? "http://localhost:3000";
 
         var result = await _authenticationService.OAuth2CallbackAsync(code);
-        if (result == null || !result.Success)
-        {
-            return Accepted(result);
-        }
-
-        // Append refresh token as HttpOnly cookie (same as DMS.Auth)
-        if (!string.IsNullOrWhiteSpace(result.Data?.RefreshToken))
+        
+        if (!string.IsNullOrEmpty(result?.Data?.AccessToken) &&
+            !string.IsNullOrEmpty(result?.Data?.RefreshToken))
         {
             AppendRefreshTokenCookie(result.Data.RefreshToken);
         }
 
-        return Ok(result);
+        return Redirect(frontendRedirectUrl);
     }
 
-    /// <summary>
-    /// Refresh the access token using the refresh token.
-    /// </summary>
+   
+    /// Refresh the access token using the refresh token.   
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] RefreshRequestDto request)
+    public async Task<IActionResult> RefreshToken()
     {
-        var refreshToken = request.RefreshToken;
-
-        // Fallback: try reading from HttpOnly cookie
-        if (string.IsNullOrWhiteSpace(refreshToken))
+        var refreshTokenValue = ExtractRefreshTokenFromCookie(Request.HttpContext);
+        if (string.IsNullOrEmpty(refreshTokenValue))
         {
-            refreshToken = Request.Cookies["refresh_token"];
+            return Accepted(new { message = "Refresh token is missing" });
         }
 
-        if (string.IsNullOrWhiteSpace(refreshToken))
-        {
-            return BadRequest(Result<string>.Fail("Refresh token is required."));
-        }
-
-        var result = await _authenticationService.RefreshTokenAsync(refreshToken);
+        var result = await _authenticationService.RefreshTokenAsync(refreshTokenValue);
         if (!result.Success)
         {
             return Accepted(result);
         }
 
-        // Update the cookie with new refresh token
         if (!string.IsNullOrWhiteSpace(result.Data?.Refresh_token))
         {
             AppendRefreshTokenCookie(result.Data.Refresh_token);
@@ -110,36 +96,35 @@ public class AuthenticationController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Logout — revokes the refresh token in Keycloak.
-    /// </summary>
+    /// Logout
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout([FromBody] RefreshRequestDto? request)
+    public async Task<IActionResult> Logout()
     {
-        var refreshToken = request?.RefreshToken;
-
-        // Fallback: try reading from HttpOnly cookie
-        if (string.IsNullOrWhiteSpace(refreshToken))
+        var refreshTokenValue = ExtractRefreshTokenFromCookie(Request.HttpContext);
+        if (string.IsNullOrEmpty(refreshTokenValue))
         {
-            refreshToken = Request.Cookies["refresh_token"];
+            return Accepted(new { message = "Refresh token is missing" });
         }
 
-        if (string.IsNullOrWhiteSpace(refreshToken))
-        {
-            return BadRequest(Result<string>.Fail("Refresh token is required."));
-        }
-
-        var result = await _authenticationService.LogoutAsync(refreshToken);
-
-        // Clear the refresh cookie
-        Response.Cookies.Delete("refresh_token");
-
+        var result = await _authenticationService.LogoutAsync(refreshTokenValue);
         if (!result.Success)
         {
             return Accepted(result);
         }
 
+        Response.Cookies.Delete("refresh_token");
+
         return Ok(result);
+    }
+
+    private static string? ExtractRefreshTokenFromCookie(HttpContext httpContext)
+    {
+        if (httpContext.Request.Cookies.TryGetValue("refresh_token", out var token))
+        {
+            return token;
+        }
+
+        return null;
     }
 
     private void AppendRefreshTokenCookie(string refreshToken)

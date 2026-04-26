@@ -15,7 +15,6 @@ namespace CitizenPortal.Infrastructure.Messaging;
 /// Kafka consumer that listens for protocol assignment events from DMS.
 /// When DMS finishes processing a citizen application, it publishes to
 /// the protocol topic. This consumer picks it up and updates the CitizenPortal DB.
-
 public class ProtocolAssignedConsumer : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
@@ -62,7 +61,7 @@ public class ProtocolAssignedConsumer : BackgroundService
         // Yield to let the rest of the app start
         await Task.Yield();
 
-        _logger.LogInformation("KafkaEmailConsumer starting. Topics: {Topics}", string.Join(",", _topics));
+        _logger.LogInformation("ProtocolAssignedConsumer started. Subscribing to {Topic}", _topic);
 
         // Retry subscribe until Kafka is ready
         while (!stoppingToken.IsCancellationRequested)

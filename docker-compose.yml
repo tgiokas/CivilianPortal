@@ -15,6 +15,8 @@ services:
       - --https-certificate-key-file=/opt/keycloak/certs/keycloak.key
       - --https-port=8443
       - --hostname-strict=false 
+      - --log-level=INFO,org.keycloak.broker:DEBUG,org.keycloak.events:DEBUG,org.keycloak.protocol:DEBUG,org.apache.http.wire:DEBUG,org.apache.http.headers:DEBUG
+
     depends_on:
       - keycloak-db
     #dev only

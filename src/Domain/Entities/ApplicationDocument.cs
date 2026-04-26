@@ -1,3 +1,5 @@
+using CitizenPortal.Domain.Enums;
+
 namespace CitizenPortal.Domain.Entities;
 
 public class ApplicationDocument
@@ -9,6 +11,7 @@ public class ApplicationDocument
     public string FileName { get; set; } = string.Empty;
     public string ContentType { get; set; } = string.Empty;
     public long FileSize { get; set; }
+    public ApplicationDocumentKind Kind { get; set; } = ApplicationDocumentKind.Attachment;
     public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

@@ -4,9 +4,10 @@ namespace CitizenPortal.Domain.Interfaces;
 
 public interface ICitizenUserRepository
 {
-    Task<CitizenUser?> GetByKeycloakUserIdAsync(Guid keycloakUserId);
+    Task AddAsync(CitizenUser user);
     Task<CitizenUser?> GetByEmailAsync(string email);
     Task<CitizenUser?> GetByIdAsync(int id);
-    Task AddAsync(CitizenUser user);
+    Task<CitizenUser?> GetByKeycloakUserIdAsync(Guid keycloakUserId);
+    Task<CitizenUser?> GetByKeycloakUserIdReadOnlyAsync(Guid keycloakUserId);
     Task UpdateAsync(CitizenUser user);
 }

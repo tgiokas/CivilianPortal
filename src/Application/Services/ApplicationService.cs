@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -13,19 +14,36 @@ namespace CitizenPortal.Application.Services;
 
 public class ApplicationService : IApplicationService
 {
+    private const string CitizenPortalBucket = "citizen-portal";
+    private const string ApplicationFormFileName = "application-form.pdf";
+    private const string ApplicationFormContentType = "application/pdf";
+
+    // Kept under a reserved subfolder so it cannot collide with a citizen-uploaded
+    // attachment that happens to be named "application-form.pdf".
+    private const string ApplicationFormKeyTemplate = "applications/{0}/_generated/application-form.pdf";
+
     private readonly IApplicationRepository _applicationRepo;
     private readonly ICitizenUserRepository _citizenUserRepo;
     private readonly IOutboxRepository _outboxRepo;
     private readonly IStorageApiClient _storageClient;
+    private readonly IApplicationPdfGenerator _pdfGenerator;
     private readonly IApplicationDbContext _dbContext;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<ApplicationService> _logger;
+
+    private static readonly JsonSerializerOptions OutboxJsonOptions = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     public ApplicationService(
         IApplicationRepository applicationRepo,
         ICitizenUserRepository citizenUserRepo,
         IOutboxRepository outboxRepo,
         IStorageApiClient storageClient,
+        IApplicationPdfGenerator pdfGenerator,
         IApplicationDbContext dbContext,
         IErrorCatalog errors,
         ILogger<ApplicationService> logger)
@@ -34,14 +52,11 @@ public class ApplicationService : IApplicationService
         _citizenUserRepo = citizenUserRepo;
         _outboxRepo = outboxRepo;
         _storageClient = storageClient;
+        _pdfGenerator = pdfGenerator;
         _dbContext = dbContext;
         _errors = errors;
         _logger = logger;
     }
-
-    // Replace the entire method body in src/Application/Services/ApplicationService.cs
-
-    private const string CitizenPortalBucket = "citizen-portal";
 
     public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(
         Guid keycloakUserId,
@@ -49,23 +64,89 @@ public class ApplicationService : IApplicationService
         List<IFormFile>? files,
         CancellationToken cancellationToken = default)
     {
-        // 1. Get or verify citizen user
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdAsync(keycloakUserId);
+        // 1. Verify citizen user exists
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(keycloakUserId);
         if (citizenUser is null)
         {
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.UserNotFound);
         }
 
-        // Generate PublicId early so we can use it in the storage key
+        // Generate PublicId early so we can use it in storage keys
         var applicationPublicId = Guid.NewGuid();
+        var submittedAt = DateTime.UtcNow;
 
-        // 2. Upload files to DMS.Storage (before transaction — external call)
+        // 2. Generate the application form PDF (CitizenPortal is now the source
+        //    of truth for this document; DMS no longer generates it).
+        byte[] pdfBytes;
+        try
+        {
+            pdfBytes = _pdfGenerator.Generate(new ApplicationPdfData
+            {
+                ApplicationPublicId = applicationPublicId,
+                Subject = request.Subject,
+                Body = request.Body,
+                Email = request.Email,
+                CitizenFirstName = citizenUser.FirstName,
+                CitizenLastName = citizenUser.LastName,
+                TaxisNetId = citizenUser.TaxisNetId,
+                SubmittedAt = submittedAt
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to generate application PDF for citizen {KeycloakUserId}",
+                keycloakUserId);
+            return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.PdfGenerationFailed);
+        }
+
+        // 3. Upload everything to DMS.Storage.
+        //    Order matters for compensation: the generated form goes first so
+        //    if any subsequent attachment fails, CleanupUploadedFilesAsync
+        //    will tear down the form too.
         var uploadedDocs = new List<ApplicationDocument>();
+
+        // 3a. Application form PDF
+        var formKey = string.Format(ApplicationFormKeyTemplate, applicationPublicId);
+        try
+        {
+            using var pdfStream = new MemoryStream(pdfBytes);
+            var formUpload = await _storageClient.UploadFileAsync(
+                CitizenPortalBucket, formKey,
+                pdfStream, ApplicationFormFileName, ApplicationFormContentType,
+                cancellationToken);
+
+            if (formUpload is null)
+            {
+                _logger.LogError(
+                    "Failed to upload generated application PDF to DMS.Storage for {PublicId}",
+                    applicationPublicId);
+                return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.FileUploadFailed);
+            }
+
+            uploadedDocs.Add(new ApplicationDocument
+            {
+                StorageBucket = formUpload.Bucket,
+                StorageKey = formUpload.Key,
+                FileName = ApplicationFormFileName,
+                ContentType = ApplicationFormContentType,
+                FileSize = formUpload.FileSize,
+                Kind = ApplicationDocumentKind.ApplicationForm
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Storage service error while uploading generated application PDF for {PublicId}",
+                applicationPublicId);
+            return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.StorageServiceUnavailable);
+        }
+
+        // 3b. Citizen-uploaded attachments
         if (files is not null && files.Count > 0)
         {
             foreach (var file in files)
             {
-                // Construct deterministic key: applications/{publicId}/{filename}
                 var storageKey = $"applications/{applicationPublicId}/{file.FileName}";
 
                 try
@@ -77,11 +158,8 @@ public class ApplicationService : IApplicationService
 
                     if (uploadResult is null)
                     {
-                        _logger.LogError("Failed to upload file {FileName} to DMS.Storage", file.FileName);
-
-                        // Compensate: clean up files already uploaded in this batch
+                        _logger.LogError("Failed to upload attachment {FileName} to DMS.Storage", file.FileName);
                         await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
-
                         return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.FileUploadFailed);
                     }
 
@@ -91,22 +169,20 @@ public class ApplicationService : IApplicationService
                         StorageKey = uploadResult.Key,
                         FileName = file.FileName,
                         ContentType = file.ContentType,
-                        FileSize = uploadResult.FileSize
+                        FileSize = uploadResult.FileSize,
+                        Kind = ApplicationDocumentKind.Attachment
                     });
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Storage service error uploading {FileName}", file.FileName);
-
-                    // Compensate: clean up files already uploaded in this batch
+                    _logger.LogError(ex, "Storage service error uploading attachment {FileName}", file.FileName);
                     await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
-
                     return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.StorageServiceUnavailable);
                 }
             }
         }
 
-        // 3. Single DB transaction: save Application + Documents + OutboxMessage
+        // 4. Single DB transaction: save Application + Documents + OutboxMessage
         using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -118,12 +194,12 @@ public class ApplicationService : IApplicationService
                 Body = request.Body,
                 Email = request.Email,
                 Status = ApplicationStatus.Submitted,
+                CreatedAt = submittedAt,
                 Documents = uploadedDocs
             };
 
             await _applicationRepo.AddAsync(application);
 
-            // Create outbox message in the same transaction
             var outboxEvent = new ApplicationSubmittedEvent
             {
                 ApplicationPublicId = application.PublicId,
@@ -134,7 +210,8 @@ public class ApplicationService : IApplicationService
                 Documents = uploadedDocs.Select(d => new StorageDocumentLocator
                 {
                     Bucket = d.StorageBucket,
-                    Key = d.StorageKey
+                    Key = d.StorageKey,
+                    Kind = d.Kind
                 }).ToList(),
                 SubmittedAt = application.CreatedAt
             };
@@ -143,7 +220,7 @@ public class ApplicationService : IApplicationService
             {
                 EventType = "citizen.application.submitted",
                 Key = application.PublicId.ToString(),
-                Payload = JsonSerializer.Serialize(outboxEvent)
+                Payload = JsonSerializer.Serialize(outboxEvent, OutboxJsonOptions)
             };
 
             await _outboxRepo.AddAsync(outboxMessage);
@@ -152,8 +229,9 @@ public class ApplicationService : IApplicationService
             await transaction.CommitAsync(cancellationToken);
 
             _logger.LogInformation(
-                "Application {PublicId} submitted by citizen {KeycloakUserId} with {DocCount} documents. Outbox message created.",
-                application.PublicId, keycloakUserId, uploadedDocs.Count);
+                "Application {PublicId} submitted by citizen {KeycloakUserId}: " +
+                "1 application form + {AttachmentCount} attachment(s). Outbox message created.",
+                application.PublicId, keycloakUserId, uploadedDocs.Count - 1);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
@@ -168,16 +246,15 @@ public class ApplicationService : IApplicationService
                 "DB transaction failed for citizen {KeycloakUserId}. Attempting to clean up {DocCount} uploaded files.",
                 keycloakUserId, uploadedDocs.Count);
 
-            // Compensating action: delete orphaned files from DMS.Storage
             await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
 
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreationFailed);
         }
-    }    
+    }
 
     public async Task<Result<ApplicationDto>> GetApplicationAsync(Guid keycloakUserId, Guid publicId)
     {
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdAsync(keycloakUserId);
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(keycloakUserId);
         if (citizenUser is null)
             return _errors.Fail<ApplicationDto>(ErrorCodes.PORTAL.UserNotFound);
 
@@ -188,9 +265,10 @@ public class ApplicationService : IApplicationService
         return Result<ApplicationDto>.Ok(MapToDto(application));
     }
 
-    public async Task<Result<PagedResult<ApplicationDto>>> GetApplicationsAsync(Guid keycloakUserId, ApplicationQueryParams queryParams)
+    public async Task<Result<PagedResult<ApplicationDto>>> GetApplicationsAsync(
+        Guid keycloakUserId, ApplicationQueryParams queryParams)
     {
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdAsync(keycloakUserId);
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(keycloakUserId);
         if (citizenUser is null)
             return _errors.Fail<PagedResult<ApplicationDto>>(ErrorCodes.PORTAL.UserNotFound);
 
@@ -261,8 +339,8 @@ public class ApplicationService : IApplicationService
             if (!deleted)
             {
                 _logger.LogWarning(
-                    "Failed to clean up orphaned file {Bucket}/{Key} ({FileName}). Manual cleanup may be required.",
-                    doc.StorageBucket, doc.StorageKey, doc.FileName);
+                    "Failed to clean up orphaned file {Bucket}/{Key} ({FileName}, kind={Kind}). Manual cleanup may be required.",
+                    doc.StorageBucket, doc.StorageKey, doc.FileName, doc.Kind);
             }
         }
     }
@@ -282,7 +360,8 @@ public class ApplicationService : IApplicationService
             StorageKey = d.StorageKey,
             FileName = d.FileName,
             ContentType = d.ContentType,
-            FileSize = d.FileSize
+            FileSize = d.FileSize,
+            Kind = d.Kind.ToString()
         }).ToList()
     };
 }

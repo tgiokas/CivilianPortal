@@ -15,36 +15,42 @@ public class CitizenUserRepository : ICitizenUserRepository
         _dbContext = dbContext;
     }
 
-    public async Task<CitizenUser?> GetByKeycloakUserIdAsync(Guid keycloakUserId)
+    public async Task<CitizenUser?> GetByKeycloakUserIdReadOnlyAsync(Guid keycloakUserId)
     {
         return await _dbContext.CitizenUsers
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.KeycloakUserId == keycloakUserId && !u.IsDeleted);
+            .FirstOrDefaultAsync(u => u.KeycloakUserId == keycloakUserId);
+    }
+
+    public async Task<CitizenUser?> GetByKeycloakUserIdAsync(Guid keycloakUserId)
+    {
+        return await _dbContext.CitizenUsers
+            .FirstOrDefaultAsync(u => u.KeycloakUserId == keycloakUserId);
     }
 
     public async Task<CitizenUser?> GetByEmailAsync(string email)
     {
         return await _dbContext.CitizenUsers
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Email == email && !u.IsDeleted);
+            .FirstOrDefaultAsync(u => u.Email == email);
     }
 
     public async Task<CitizenUser?> GetByIdAsync(int id)
     {
         return await _dbContext.CitizenUsers
             .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == id && !u.IsDeleted);
+            .FirstOrDefaultAsync(u => u.Id == id);
     }
 
     public async Task AddAsync(CitizenUser user)
     {
         await _dbContext.CitizenUsers.AddAsync(user);
+        await _dbContext.SaveChangesAsync();
     }
 
-    public Task UpdateAsync(CitizenUser user)
+    public async Task UpdateAsync(CitizenUser user)
     {
         user.ModifiedAt = DateTime.UtcNow;
-        _dbContext.CitizenUsers.Update(user);
-        return Task.CompletedTask;
+        await _dbContext.SaveChangesAsync();
     }
 }

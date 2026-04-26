@@ -12,30 +12,25 @@ namespace CitizenPortal.Application.Services;
 public class AuthenticationService : IAuthenticationService
 {
     private readonly IKeycloakApiClient _keycloakClientAuth;
-    private readonly ICitizenUserRepository _citizenUserRepo;
-    private readonly IApplicationDbContext _dbContext;
+    private readonly ICitizenUserRepository _citizenUserRepo;    
     private readonly IErrorCatalog _errors;
     private readonly ILogger<AuthenticationService> _logger;
 
     public AuthenticationService(
         IKeycloakApiClient keycloakClientAuth,
-        ICitizenUserRepository citizenUserRepo,
-        IApplicationDbContext dbContext,
+        ICitizenUserRepository citizenUserRepo,        
         IErrorCatalog errors,
         ILogger<AuthenticationService> logger)
     {
         _keycloakClientAuth = keycloakClientAuth;
-        _citizenUserRepo = citizenUserRepo;
-        _dbContext = dbContext;
+        _citizenUserRepo = citizenUserRepo;        
         _errors = errors;
         _logger = logger;
     }
 
-    /// Simple username/password login via Keycloak Direct Access Grant.
-    /// Simple login with auto-registration for testing before GSIS integration.   
+    /// Username/password login via Keycloak Direct Access Grant.
     public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request)
     {
-
         var tokenResponse = await _keycloakClientAuth.GetUserAccessTokenAsync(
             request.Username, request.Password);
 
@@ -44,7 +39,7 @@ public class AuthenticationService : IAuthenticationService
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
         }
 
-        // Parse JWT claims and auto-provision citizen in our DB
+        // Parse JWT claims and auto-provision citizen in Citizen-Portal DB
         return await ProcessTokenAndProvisionCitizen(tokenResponse);
     }
 
@@ -58,12 +53,13 @@ public class AuthenticationService : IAuthenticationService
     {
         // 1. Exchange code for tokens
         var tokenResponse = await _keycloakClientAuth.GetAccessTokenByCodeAsync(code);
+        
         if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
         {
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
         }
 
-        // 2. Parse claims and provision citizen (shared logic)
+        // 2. Parse claims and provision citizen in Citizen-Portal DB
         return await ProcessTokenAndProvisionCitizen(tokenResponse);
     }
 
@@ -94,7 +90,6 @@ public class AuthenticationService : IAuthenticationService
         return Result<bool>.Ok(true, message: "Logout successful");
     }
 
-
     // Private: shared logic for JWT parsing + citizen auto-provisioning
     // Used by both LoginAsync (password grant) and OAuth2CallbackAsync (code grant)
     private async Task<Result<LoginResponseDto>> ProcessTokenAndProvisionCitizen(TokenDto tokenResponse)
@@ -120,10 +115,10 @@ public class AuthenticationService : IAuthenticationService
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
         }
 
-        // 3. Check if citizen exists in our DB
+        // 3. Check if citizen exists in Citizen-portal DB
         var dbCitizen = await _citizenUserRepo.GetByKeycloakUserIdAsync(userId);
 
-        // 4. If not exists → auto-provision
+        // 4. If not exists --> auto-provision
         if (dbCitizen == null)
         {
             _logger.LogInformation("New citizen login. Provisioning user {Email} (Keycloak: {UserId})", email, userId);
@@ -138,37 +133,18 @@ public class AuthenticationService : IAuthenticationService
             };
 
             await _citizenUserRepo.AddAsync(dbCitizen);
-            await _dbContext.SaveChangesAsync();
-
             _logger.LogInformation("Citizen {Email} provisioned successfully (Id: {Id})", email, dbCitizen.Id);
         }
         else
         {
-            // Update fields if they changed in Keycloak/GSIS
-            var updated = false;
-            if (!string.IsNullOrWhiteSpace(firstName) && dbCitizen.FirstName != firstName)
-            {
-                dbCitizen.FirstName = firstName;
-                updated = true;
-            }
-            if (!string.IsNullOrWhiteSpace(lastName) && dbCitizen.LastName != lastName)
-            {
-                dbCitizen.LastName = lastName;
-                updated = true;
-            }
-            if (!string.IsNullOrWhiteSpace(taxisNetId) && dbCitizen.TaxisNetId != taxisNetId)
-            {
-                dbCitizen.TaxisNetId = taxisNetId;
-                updated = true;
-            }
+            if (!string.IsNullOrWhiteSpace(firstName)) dbCitizen.FirstName = firstName;
+            if (!string.IsNullOrWhiteSpace(lastName)) dbCitizen.LastName = lastName;
+            if (!string.IsNullOrWhiteSpace(taxisNetId)) dbCitizen.TaxisNetId = taxisNetId;
 
-            if (updated)
-            {
-                await _citizenUserRepo.UpdateAsync(dbCitizen);
-                await _dbContext.SaveChangesAsync();
-                _logger.LogInformation("Updated citizen {Email} profile from GSIS claims", email);
-            }
-        }
+            await _citizenUserRepo.UpdateAsync(dbCitizen);
+
+            _logger.LogInformation("Updated citizen {Email} profile from GSIS claims", email);
+        }       
 
         // 5. Return tokens + citizen info
         return Result<LoginResponseDto>.Ok(new LoginResponseDto

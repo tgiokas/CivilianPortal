@@ -15,7 +15,6 @@ Citizens authenticate via **GSIS/TaxisNet** (brokered through Keycloak), submit 
 - **Outbox Pattern** — guarantees transactional consistency between DB writes and Kafka events
 - **Kafka** — async buffer between CitizenPortal and DMS for scalability (handles 1000+ concurrent submissions)
 - **DMS.Storage** — shared file storage (files uploaded via HTTP/Traefik)
-- **Traefik** — service mesh routing between CitizenPortal ↔ DMS services
 
 ---
 

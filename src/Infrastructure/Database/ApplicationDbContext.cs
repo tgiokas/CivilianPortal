@@ -29,8 +29,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(u => u.Email).IsRequired().HasMaxLength(320);
             entity.Property(u => u.FirstName).HasMaxLength(200);
             entity.Property(u => u.LastName).HasMaxLength(200);
-            entity.Property(u => u.TaxisNetId).HasMaxLength(50);
-            entity.Property(u => u.IsDeleted).HasDefaultValue(false);
+            entity.Property(u => u.TaxisNetId).HasMaxLength(50);           
             entity.HasIndex(u => u.KeycloakUserId).IsUnique();
             entity.HasIndex(u => u.Email);
         });
@@ -65,6 +64,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(d => d.StorageKey).IsRequired().HasMaxLength(500);
             entity.Property(d => d.FileName).IsRequired().HasMaxLength(500);
             entity.Property(d => d.ContentType).IsRequired().HasMaxLength(100);
+            entity.Property(d => d.Kind)
+                  .HasConversion<int>()
+                  .IsRequired();                  
+            
+            entity.HasIndex(d => new { d.ApplicationId, d.Kind });
 
             entity.HasOne(d => d.Application)
                   .WithMany(a => a.Documents)

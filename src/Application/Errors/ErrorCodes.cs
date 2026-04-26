@@ -23,5 +23,6 @@ public static class ErrorCodes
         public const string RefreshFailed = "PORTAL-016";
         public const string LogoutFailed = "PORTAL-017";
         public const string ApplicationCreationFailed = "PORTAL-018";
+        public const string PdfGenerationFailed = "PORTAL-019";
     }
 }

@@ -15,6 +15,7 @@ public class OutboxRepository : IOutboxRepository
         _dbContext = dbContext;
     }
 
+    // No SaveChanges, caller commits the transaction alongside the Application insert.
     public async Task AddAsync(OutboxMessage message)
     {
         await _dbContext.OutboxMessages.AddAsync(message);

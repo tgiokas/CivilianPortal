@@ -5,11 +5,9 @@ namespace CitizenPortal.Domain.Interfaces;
 
 public interface IApplicationRepository
 {
-    Task<Application?> GetByIdAsync(int id);
     Task<Application?> GetByPublicIdAsync(Guid publicId);
     Task<List<Application>> GetByCitizenUserIdAsync(int citizenUserId);
     Task AddAsync(Application application);
-    Task UpdateAsync(Application application);
     Task UpdateDocumentLocationsAsync(int applicationId, List<(string Bucket, string Key)> newLocations);
     Task UpdateStatusAsync(int applicationId, ApplicationStatus status, string? protocolNumber = null);
 }

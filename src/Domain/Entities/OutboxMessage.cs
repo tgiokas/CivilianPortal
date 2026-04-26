@@ -7,8 +7,8 @@ public class OutboxMessage
 {
     public int Id { get; set; }
     public Guid EventId { get; set; } = Guid.NewGuid();
-    public string EventType { get; set; } = string.Empty;   // e.g. "citizen.application.submitted"
-    public string Payload { get; set; } = string.Empty;      // JSON serialized event data
+    public string EventType { get; set; } = string.Empty;     // e.g. "citizen.application.submitted"
+    public string Payload { get; set; } = string.Empty;       // JSON serialized event data
     public string? Key { get; set; }                          // Kafka partition key
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ProcessedAt { get; set; }                // null = pending, set = published

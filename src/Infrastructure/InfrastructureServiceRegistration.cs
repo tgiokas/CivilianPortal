@@ -13,6 +13,7 @@ using CitizenPortal.Infrastructure.Database;
 using CitizenPortal.Infrastructure.Messaging;
 using CitizenPortal.Infrastructure.Repositories;
 using CitizenPortal.Infrastructure.ExternalServices;
+using CitizenPortal.Infrastructure.Services;
 
 namespace CitizenPortal.Infrastructure;
 
@@ -53,7 +54,15 @@ public static class InfrastructureServiceRegistration
         // === Repositories ===
         services.AddScoped<ICitizenUserRepository, CitizenUserRepository>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
-        services.AddScoped<IOutboxRepository, OutboxRepository>();   
+        services.AddScoped<IOutboxRepository, OutboxRepository>();
+
+        // === Application PDF generation ===
+        // PdfSharpCore uses a process-wide static font resolver. Our resolver
+        // reads TTF files embedded inside this assembly, so it works identically
+        // on Windows dev machines, Linux containers, and CI runners — no host
+        // fonts, no filesystem paths, no surprises.
+        EmbeddedFontResolver.Register();
+        services.AddSingleton<IApplicationPdfGenerator, PdfSharpApplicationPdfGenerator>();
 
         // === Kafka ===
         services.AddSingleton<IMessagePublisher, KafkaPublisher>();
@@ -68,9 +77,9 @@ public static class InfrastructureServiceRegistration
         {
             client.BaseAddress = new Uri(keycloakSettings.BaseUrl);
         }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-            });
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+        });
 
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
         {
