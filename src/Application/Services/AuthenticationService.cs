@@ -142,7 +142,6 @@ public class AuthenticationService : IAuthenticationService
             if (!string.IsNullOrWhiteSpace(taxisNetId)) dbCitizen.TaxisNetId = taxisNetId;
 
             await _citizenUserRepo.UpdateAsync(dbCitizen);
-
             _logger.LogInformation("Updated citizen {Email} profile from GSIS claims", email);
         }       
 

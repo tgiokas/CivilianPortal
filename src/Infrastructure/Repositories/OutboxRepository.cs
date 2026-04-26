@@ -15,12 +15,6 @@ public class OutboxRepository : IOutboxRepository
         _dbContext = dbContext;
     }
 
-    // No SaveChanges, caller commits the transaction alongside the Application insert.
-    public async Task AddAsync(OutboxMessage message)
-    {
-        await _dbContext.OutboxMessages.AddAsync(message);
-    }
-
     public async Task<List<OutboxMessage>> GetPendingAsync(int batchSize = 20)
     {
         return await _dbContext.OutboxMessages
@@ -28,6 +22,12 @@ public class OutboxRepository : IOutboxRepository
             .OrderBy(o => o.CreatedAt)
             .Take(batchSize)
             .ToListAsync();
+    }
+
+    // No SaveChanges, caller commits the transaction alongside the Application insert.
+    public async Task AddAsync(OutboxMessage message)
+    {
+        await _dbContext.OutboxMessages.AddAsync(message);
     }
 
     public async Task MarkAsProcessedAsync(int id)
