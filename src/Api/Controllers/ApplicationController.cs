@@ -28,7 +28,7 @@ public class ApplicationController : ControllerBase
         [FromForm] List<IFormFile>? files,
         CancellationToken cancellationToken)
     {
-        var result = await _applicationService.SubmitApplicationAsync(request.KeycloakUserId, request, files, cancellationToken);
+        var result = await _applicationService.SubmitApplicationAsync(request, files, cancellationToken);
 
         if (!result.Success)
             return Accepted(result);
@@ -40,12 +40,8 @@ public class ApplicationController : ControllerBase
 
     [HttpGet("{publicId:guid}")]
     public async Task<IActionResult> GetApplication(Guid publicId)
-    {
-        var keycloakUserId = GetKeycloakUserId();
-        if (keycloakUserId == Guid.Empty)
-            return Unauthorized();
-
-        var result = await _applicationService.GetApplicationAsync(keycloakUserId, publicId);
+    {      
+        var result = await _applicationService.GetApplicationAsync(publicId);
 
         if (!result.Success)
             return Accepted(result);
@@ -57,25 +53,13 @@ public class ApplicationController : ControllerBase
     /// List all applications for the authenticated citizen (paged).
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetApplications([FromQuery] ApplicationQueryParams queryParams)
-    {
-        var keycloakUserId = GetKeycloakUserId();
-        if (keycloakUserId == Guid.Empty)
-            return Unauthorized();
-
-        var result = await _applicationService.GetApplicationsAsync(keycloakUserId, queryParams);
+    public async Task<IActionResult> GetApplications([FromQuery] ApplicationQueryParams request)
+    {     
+         var result = await _applicationService.GetApplicationsAsync(request);
 
         if (!result.Success)
             return Accepted(result);
 
         return Ok(result);
-    }
-
-    private Guid GetKeycloakUserId()
-    {
-        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                ?? User.FindFirstValue("sub");
-
-        return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
-    }
+    }   
 }

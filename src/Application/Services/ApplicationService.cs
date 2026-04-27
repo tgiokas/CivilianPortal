@@ -58,14 +58,13 @@ public class ApplicationService : IApplicationService
         _logger = logger;
     }
 
-    public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(
-        Guid keycloakUserId,
+    public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(        
         ApplicationCreateDto request,
         List<IFormFile>? files,
         CancellationToken cancellationToken = default)
     {
         // 1. Verify citizen user exists
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(keycloakUserId);
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(request.KeycloakUserId);
         if (citizenUser is null)
         {
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.UserNotFound);
@@ -96,7 +95,7 @@ public class ApplicationService : IApplicationService
         {
             _logger.LogError(ex,
                 "Failed to generate application PDF for citizen {KeycloakUserId}",
-                keycloakUserId);
+                request.KeycloakUserId);
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.PdfGenerationFailed);
         }
 
@@ -231,7 +230,7 @@ public class ApplicationService : IApplicationService
             _logger.LogInformation(
                 "Application {PublicId} submitted by citizen {KeycloakUserId}: " +
                 "1 application form + {AttachmentCount} attachment(s). Outbox message created.",
-                application.PublicId, keycloakUserId, uploadedDocs.Count - 1);
+                application.PublicId, request.KeycloakUserId, uploadedDocs.Count - 1);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
@@ -244,7 +243,7 @@ public class ApplicationService : IApplicationService
         {
             _logger.LogError(ex,
                 "DB transaction failed for citizen {KeycloakUserId}. Attempting to clean up {DocCount} uploaded files.",
-                keycloakUserId, uploadedDocs.Count);
+                request.KeycloakUserId, uploadedDocs.Count);
 
             await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
 
@@ -252,30 +251,23 @@ public class ApplicationService : IApplicationService
         }
     }
 
-    public async Task<Result<ApplicationDto>> GetApplicationAsync(Guid keycloakUserId, Guid publicId)
-    {
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(keycloakUserId);
-        if (citizenUser is null)
-            return _errors.Fail<ApplicationDto>(ErrorCodes.PORTAL.UserNotFound);
+    public async Task<Result<ApplicationDto>> GetApplicationAsync(Guid publicId)
+    {       
 
         var application = await _applicationRepo.GetByPublicIdAsync(publicId);
-        if (application is null || application.CitizenUserId != citizenUser.Id)
+        if (application is null)
             return _errors.Fail<ApplicationDto>(ErrorCodes.PORTAL.ApplicationNotFound);
 
         return Result<ApplicationDto>.Ok(MapToDto(application));
     }
 
-    public async Task<Result<PagedResult<ApplicationDto>>> GetApplicationsAsync(
-        Guid keycloakUserId, ApplicationQueryParams queryParams)
+    public async Task<Result<PagedResult<ApplicationDto>>> GetApplicationsAsync(ApplicationQueryParams queryParams)
     {
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(keycloakUserId);
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(queryParams.KeycloakUserId);
         if (citizenUser is null)
             return _errors.Fail<PagedResult<ApplicationDto>>(ErrorCodes.PORTAL.UserNotFound);
 
-        var applications = await _applicationRepo.GetByCitizenUserIdAsync(citizenUser.Id);
-
-        if (queryParams.Status.HasValue)
-            applications = applications.Where(a => a.Status == queryParams.Status.Value).ToList();
+        var applications = await _applicationRepo.GetByCitizenUserIdAsync(citizenUser.Id);       
 
         var total = applications.Count;
         var paged = applications
