@@ -8,7 +8,7 @@ public static class ErrorCodes
         public const string ErrorInErrorCodes = "PORTAL-001";
         public const string UserNotFound = "PORTAL-002";
         public const string ApplicationNotFound = "PORTAL-003";
-        public const string ApplicationCreateFailed = "PORTAL-004";
+        public const string ApplicationCreatedFailed = "PORTAL-004";
         public const string FileUploadFailed = "PORTAL-005";
         public const string StorageServiceUnavailable = "PORTAL-006";
         public const string InvalidFileType = "PORTAL-007";

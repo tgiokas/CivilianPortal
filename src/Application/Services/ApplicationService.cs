@@ -248,7 +248,7 @@ public class ApplicationService : IApplicationService
 
             await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
 
-            return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreationFailed);
+            return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreatedFailed);
         }
     }
 
