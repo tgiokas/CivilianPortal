@@ -137,13 +137,31 @@ public class AuthenticationService : IAuthenticationService
         }
         else
         {
-            if (!string.IsNullOrWhiteSpace(firstName)) dbCitizen.FirstName = firstName;
-            if (!string.IsNullOrWhiteSpace(lastName)) dbCitizen.LastName = lastName;
-            if (!string.IsNullOrWhiteSpace(taxisNetId)) dbCitizen.TaxisNetId = taxisNetId;
+            bool updated = false;
 
-            await _citizenUserRepo.UpdateAsync(dbCitizen);
-            _logger.LogInformation("Updated citizen {Email} profile from GSIS claims", email);
-        }       
+            if (!string.IsNullOrWhiteSpace(firstName) && dbCitizen.FirstName != firstName)
+            {
+                dbCitizen.FirstName = firstName;
+                updated = true;
+            }
+            if (!string.IsNullOrWhiteSpace(lastName) && dbCitizen.LastName != lastName)
+            {
+                dbCitizen.LastName = lastName;
+                updated = true;
+            }
+            if (!string.IsNullOrWhiteSpace(taxisNetId) && dbCitizen.TaxisNetId != taxisNetId)
+            {
+                dbCitizen.TaxisNetId = taxisNetId;
+                updated = true;
+            }
+
+            if (updated)
+            {
+                await _citizenUserRepo.UpdateAsync(dbCitizen);
+                _logger.LogInformation("Updated citizen {Email} profile from GSIS claims", email);
+            }
+
+        }
 
         // 5. Return tokens + citizen info
         return Result<LoginResponseDto>.Ok(new LoginResponseDto
