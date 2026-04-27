@@ -34,7 +34,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     // No SaveChanges — caller commits the transaction (outbox pattern).
-    public async Task AddAsync(Domain.Entities.Application application)
+    public async Task AddWithoutSaveAsync (Domain.Entities.Application application)
     {
         await _dbContext.Applications.AddAsync(application);
     }

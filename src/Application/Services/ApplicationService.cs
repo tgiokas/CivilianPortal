@@ -198,7 +198,7 @@ public class ApplicationService : IApplicationService
                 Documents = uploadedDocs
             };
 
-            await _applicationRepo.AddAsync(application);
+            await _applicationRepo.AddWithoutSaveAsync (application);
 
             var outboxEvent = new ApplicationSubmittedEvent
             {
