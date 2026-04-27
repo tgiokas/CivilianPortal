@@ -18,8 +18,9 @@ public class AuthenticationController : ControllerBase
         _configuration = configuration;
     }
 
-    /// Simple username/password login via Keycloak Direct Access Grant. (For Testing)
+    /// Simple username/password login via Keycloak Direct Access Grant.
     /// POST /authentication/login
+    /// Will Not be deployed to production (For Testing Only)
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
