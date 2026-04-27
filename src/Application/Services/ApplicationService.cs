@@ -20,7 +20,7 @@ public class ApplicationService : IApplicationService
 
     // Kept under a reserved subfolder so it cannot collide with a citizen-uploaded
     // attachment that happens to be named "application-form.pdf".
-    private const string ApplicationFormKeyTemplate = "applications/{0}/_generated/application-form.pdf";
+    private const string ApplicationFormKeyTemplate = "applications/{0}/generated/application-form.pdf";
 
     private readonly IApplicationRepository _applicationRepo;
     private readonly ICitizenUserRepository _citizenUserRepo;
@@ -147,7 +147,7 @@ public class ApplicationService : IApplicationService
         {
             foreach (var file in files)
             {
-                var storageKey = $"applications/{applicationPublicId}/{file.FileName}";
+                var storageKey = $"applications/{applicationPublicId}/attachments/{Guid.NewGuid():N}-{file.FileName}";
 
                 try
                 {
