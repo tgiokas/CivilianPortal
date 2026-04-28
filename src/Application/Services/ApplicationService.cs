@@ -293,22 +293,21 @@ public class ApplicationService : IApplicationService
             ? parsed
             : ApplicationStatus.Registered;
 
-        // Update document locations if the backend moved the files
-        if (protocolEvent.Documents.Count > 0)
-        {
-            var newLocations = protocolEvent.Documents
-                .Select(d => (d.Bucket, d.Key))
-                .ToList();
+        var updated = await _applicationRepo.UpdateStatusAsync(
+            application.Id, newStatus, protocolEvent.ProtocolNumber);
 
-            await _applicationRepo.UpdateDocumentLocationsAsync(application.Id, newLocations);
+        if (!updated)
+        {
+            _logger.LogWarning(
+                "Application {PublicId} (Id={Id}) disappeared between read and write while " +
+                "applying protocol assignment.",
+                protocolEvent.ApplicationPublicId, application.Id);
+            return _errors.Fail<bool>(ErrorCodes.PORTAL.ApplicationNotFound);
         }
 
-        await _applicationRepo.UpdateStatusAsync(application.Id, newStatus, protocolEvent.ProtocolNumber);
-
         _logger.LogInformation(
-            "Application {PublicId} updated: status={Status}, protocol={ProtocolNumber}, {DocCount} document locations updated.",
-            protocolEvent.ApplicationPublicId, newStatus, protocolEvent.ProtocolNumber,
-            protocolEvent.Documents.Count);
+            "Application {PublicId} updated: status={Status}, protocol={ProtocolNumber}.",
+            protocolEvent.ApplicationPublicId, newStatus, protocolEvent.ProtocolNumber);
 
         return Result<bool>.Ok(true, "Status updated");
     }

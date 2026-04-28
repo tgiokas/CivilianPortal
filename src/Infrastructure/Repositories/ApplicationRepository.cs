@@ -39,37 +39,19 @@ public class ApplicationRepository : IApplicationRepository
         await _dbContext.Applications.AddAsync(application);
     }
 
-    public async Task UpdateStatusAsync(int applicationId, ApplicationStatus status, string? protocolNumber = null)
+    public async Task<bool> UpdateStatusAsync(int applicationId, ApplicationStatus status, string? protocolNumber = null)
     {
         var application = await _dbContext.Applications.FindAsync(applicationId);
-        if (application is not null)
+        if (application is null)
         {
-            application.Status = status;
-            application.ProtocolNumber = protocolNumber ?? application.ProtocolNumber;
-            application.ModifiedAt = DateTime.UtcNow;
-            
-            await _dbContext.SaveChangesAsync();
+            return false;
         }
-    }
-    public async Task UpdateDocumentLocationsAsync(int applicationId, List<(string Bucket, string Key)> newLocations)
-    {
-        var documents = await _dbContext.ApplicationDocuments
-            .Where(d => d.ApplicationId == applicationId)
-            .ToListAsync();
 
-        foreach (var doc in documents)
-        {
-            var currentFileName = Path.GetFileName(doc.StorageKey);
-            var newLocation = newLocations.FirstOrDefault(
-                nl => Path.GetFileName(nl.Key) == currentFileName);
-
-            if (newLocation != default)
-            {
-                doc.StorageBucket = newLocation.Bucket;
-                doc.StorageKey = newLocation.Key;
-            }
-        }
+        application.Status = status;
+        application.ProtocolNumber = protocolNumber;
+        application.ModifiedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
-    }
+        return true;
+    }   
 }
