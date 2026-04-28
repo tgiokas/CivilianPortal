@@ -7,8 +7,7 @@ using CitizenPortal.Application.Dtos;
 namespace CitizenPortal.Api.Controllers;
 
 [ApiController]
-[Route("api/citizen/applications")]
-//[Authorize(Roles = "citizen")]
+[Route("[controller]")]
 public class ApplicationController : ControllerBase
 {
     private readonly IApplicationService _applicationService;
@@ -40,7 +39,11 @@ public class ApplicationController : ControllerBase
 
     [HttpGet("{publicId:guid}")]
     public async Task<IActionResult> GetApplication(Guid publicId)
-    {      
+    {
+        //var keycloakUserId = GetKeycloakUserId();
+        //if (keycloakUserId == Guid.Empty)
+        //    return Unauthorized();
+
         var result = await _applicationService.GetApplicationAsync(publicId);
 
         if (!result.Success)
@@ -53,13 +56,21 @@ public class ApplicationController : ControllerBase
     /// List all applications for the authenticated citizen (paged).
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetApplications([FromQuery] ApplicationQueryParams request)
+    public async Task<IActionResult> GetApplications([FromQuery] UserApplicationDto request)
     {     
-         var result = await _applicationService.GetApplicationsAsync(request);
+         var result = await _applicationService.GetUserApplicationsAsync(request);
 
         if (!result.Success)
             return Accepted(result);
 
         return Ok(result);
-    }   
+    }
+
+    private Guid GetKeycloakUserId()
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? User.FindFirstValue("sub");
+
+        return Guid.TryParse(sub, out var id) ? id : Guid.Empty;
+    }
 }

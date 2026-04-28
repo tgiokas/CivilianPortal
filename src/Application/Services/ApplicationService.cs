@@ -261,29 +261,21 @@ public class ApplicationService : IApplicationService
         return Result<ApplicationDto>.Ok(MapToDto(application));
     }
 
-    public async Task<Result<PagedResult<ApplicationDto>>> GetApplicationsAsync(ApplicationQueryParams queryParams)
+    public async Task<Result<List<ApplicationDto>>> GetUserApplicationsAsync(UserApplicationDto queryParams)
     {
         var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(queryParams.KeycloakUserId);
         if (citizenUser is null)
-            return _errors.Fail<PagedResult<ApplicationDto>>(ErrorCodes.PORTAL.UserNotFound);
+            return _errors.Fail<List<ApplicationDto>>(ErrorCodes.PORTAL.UserNotFound);
 
         var applications = await _applicationRepo.GetByCitizenUserIdAsync(citizenUser.Id);       
 
         var total = applications.Count;
-        var paged = applications
+        var result = applications
             .OrderByDescending(a => a.CreatedAt)
-            .Skip((queryParams.Page - 1) * queryParams.PageSize)
-            .Take(queryParams.PageSize)
             .Select(MapToDto)
             .ToList();
 
-        return Result<PagedResult<ApplicationDto>>.Ok(new PagedResult<ApplicationDto>
-        {
-            Items = paged,
-            TotalCount = total,
-            Page = queryParams.Page,
-            PageSize = queryParams.PageSize
-        });
+        return Result<List<ApplicationDto>>.Ok(result);
     }
 
     /// Called by the Kafka consumer when DMS publishes a protocol-assigned event.
