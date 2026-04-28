@@ -18,6 +18,7 @@ public class OutboxRepository : IOutboxRepository
     public async Task<List<OutboxMessage>> GetPendingAsync(int batchSize = 20)
     {
         return await _dbContext.OutboxMessages
+            .AsNoTracking()
             .Where(o => o.ProcessedAt == null && o.RetryCount < 5)
             .OrderBy(o => o.CreatedAt)
             .Take(batchSize)
