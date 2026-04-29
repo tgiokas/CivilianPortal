@@ -166,4 +166,10 @@ public class ProtocolAssignedConsumer : BackgroundService
 
         return null;
     }
+
+    public override void Dispose()
+    {
+        _consumer.Dispose();
+        base.Dispose();
+    }
 }

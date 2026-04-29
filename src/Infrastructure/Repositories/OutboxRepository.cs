@@ -33,22 +33,15 @@ public class OutboxRepository : IOutboxRepository
 
     public async Task MarkAsProcessedAsync(int id)
     {
-        var message = await _dbContext.OutboxMessages.FindAsync(id);
-        if (message is not null)
-        {
-            message.ProcessedAt = DateTime.UtcNow;
-            await _dbContext.SaveChangesAsync();
-        }
+        await _dbContext.OutboxMessages
+            .Where(o => o.Id == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.ProcessedAt, DateTime.UtcNow));
     }
 
     public async Task MarkAsFailedAsync(int id, string error)
     {
-        var message = await _dbContext.OutboxMessages.FindAsync(id);
-        if (message is not null)
-        {
-            message.RetryCount++;
-            message.Error = error;
-            await _dbContext.SaveChangesAsync();
-        }
+        await _dbContext.OutboxMessages
+            .Where(o => o.Id == id)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.RetryCount, o => o.RetryCount + 1));
     }
 }

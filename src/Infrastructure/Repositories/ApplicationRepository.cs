@@ -33,25 +33,21 @@ public class ApplicationRepository : IApplicationRepository
             .ToListAsync();
     }
 
-    // No SaveChanges — caller commits the transaction (outbox pattern).
+    // No SaveChanges ï¿½ caller commits the transaction (outbox pattern).
     public async Task AddWithoutSaveAsync (Domain.Entities.Application application)
     {
         await _dbContext.Applications.AddAsync(application);
     }
 
-    public async Task<bool> UpdateStatusAsync(int applicationId, ApplicationStatus status, string? protocolNumber = null)
+    public async Task<bool> UpdateStatusAsync(int applicationId, ApplicationStatus status, string protocolNumber)
     {
-        var application = await _dbContext.Applications.FindAsync(applicationId);
-        if (application is null)
-        {
-            return false;
-        }
-
-        application.Status = status;
-        application.ProtocolNumber = protocolNumber;
-        application.ModifiedAt = DateTime.UtcNow;
-
-        await _dbContext.SaveChangesAsync();
-        return true;
-    }   
+        var rows = await _dbContext.Applications
+            .Where(a => a.Id == applicationId
+                     && a.ProtocolNumber == null)   // <-- only write once
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.Status, status)
+                .SetProperty(a => a.ProtocolNumber, protocolNumber)
+                .SetProperty(a => a.ModifiedAt, DateTime.UtcNow));
+        return rows > 0;
+    }
 }
