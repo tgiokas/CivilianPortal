@@ -94,17 +94,10 @@ public class PdfSharpApplicationPdfGenerator : IApplicationPdfGenerator
             y = DrawLabelValue(gfx, tf, labelFont, bodyFont,
                 "Ονοματεπώνυμο:", data.CitizenFullName,
                 PageMarginLeft, y, contentWidth);
-        }
-
-        if (!string.IsNullOrWhiteSpace(data.TaxisNetId))
-        {
-            y = DrawLabelValue(gfx, tf, labelFont, bodyFont,
-                "ΑΦΜ / TaxisNet ID:", data.TaxisNetId!,
-                PageMarginLeft, y, contentWidth);
-        }
+        }       
 
         y = DrawLabelValue(gfx, tf, labelFont, bodyFont,
-            "Email Επικοινωνίας:", data.Email,
+            "Email Επικοινωνίας:", data.CitizenEmail,
             PageMarginLeft, y, contentWidth);
 
         y += 10;

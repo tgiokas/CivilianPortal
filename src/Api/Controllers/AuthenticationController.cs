@@ -71,7 +71,6 @@ public class AuthenticationController : ControllerBase
 
         return Redirect(frontendRedirectUrl);
     }
-
    
     /// Refresh the access token using the refresh token.   
     [HttpPost("refresh")]

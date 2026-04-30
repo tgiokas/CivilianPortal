@@ -45,6 +45,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(a => a.Email).IsRequired().HasMaxLength(320);
             entity.Property(a => a.Status).HasConversion<int>().HasDefaultValue(ApplicationStatus.Submitted);
             entity.Property(a => a.ProtocolNumber).HasMaxLength(50);
+            
             entity.HasIndex(a => a.PublicId).IsUnique();
             entity.HasIndex(a => a.CitizenUserId);
             entity.HasIndex(a => a.Status);
@@ -85,6 +86,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(o => o.EventType).IsRequired().HasMaxLength(200);
             entity.Property(o => o.Payload).IsRequired();
             entity.Property(o => o.Key).HasMaxLength(200);
+            
             entity.HasIndex(o => o.ProcessedAt).HasFilter("processed_at IS NULL");  // Fast lookup for pending
         });
     }

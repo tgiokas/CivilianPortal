@@ -16,10 +16,7 @@ public class ApplicationService : IApplicationService
 {
     private const string CitizenPortalBucket = "citizen-portal";
     private const string ApplicationFormFileName = "application-form.pdf";
-    private const string ApplicationFormContentType = "application/pdf";
-
-    // Kept under a reserved subfolder so it cannot collide with a citizen-uploaded
-    // attachment that happens to be named "application-form.pdf".
+    private const string ApplicationFormContentType = "application/pdf";    
     private const string ApplicationFormKeyTemplate = "applications/{0}/generated/application-form.pdf";
 
     private readonly IApplicationRepository _applicationRepo;
@@ -61,10 +58,11 @@ public class ApplicationService : IApplicationService
     public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(        
         ApplicationCreateDto request,
         List<IFormFile>? files,
+        string externalSystemId,
         CancellationToken cancellationToken = default)
     {
         // 1. Verify citizen user exists
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(request.KeycloakUserId);
+        var citizenUser = await _citizenUserRepo.GetByIdAsync(request.CitizenUserId);
         if (citizenUser is null)
         {
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.UserNotFound);
@@ -84,18 +82,17 @@ public class ApplicationService : IApplicationService
                 ApplicationPublicId = applicationPublicId,
                 Subject = request.Subject,
                 Body = request.Body,
-                Email = request.Email,
+                CitizenEmail = request.Email,
                 CitizenFirstName = citizenUser.FirstName,
-                CitizenLastName = citizenUser.LastName,
-                TaxisNetId = citizenUser.TaxisNetId,
+                CitizenLastName = citizenUser.LastName,                
                 SubmittedAt = submittedAt
             });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Failed to generate application PDF for citizen {KeycloakUserId}",
-                request.KeycloakUserId);
+                "Failed to generate application PDF for citizen {CitizenUserId}",
+                request.CitizenUserId);
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.PdfGenerationFailed);
         }
 
@@ -202,10 +199,9 @@ public class ApplicationService : IApplicationService
             var outboxEvent = new ApplicationSubmittedEvent
             {
                 ApplicationPublicId = application.PublicId,
-                Subject = application.Subject,
-                Body = application.Body,
-                Email = application.Email,
-                CitizenTaxisNetId = citizenUser.TaxisNetId,
+                ExternalSystemId = externalSystemId,
+                Subject = application.Subject,                
+                Email = application.Email,                
                 Documents = uploadedDocs.Select(d => new StorageDocumentLocator
                 {
                     Bucket = d.StorageBucket,
@@ -228,9 +224,9 @@ public class ApplicationService : IApplicationService
             await transaction.CommitAsync(cancellationToken);
 
             _logger.LogInformation(
-                "Application {PublicId} submitted by citizen {KeycloakUserId}: " +
+                "Application {PublicId} submitted by citizen {CitizenUserId}: " +
                 "1 application form + {AttachmentCount} attachment(s). Outbox message created.",
-                application.PublicId, request.KeycloakUserId, uploadedDocs.Count - 1);
+                application.PublicId, request.CitizenUserId, uploadedDocs.Count - 1);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
@@ -242,8 +238,8 @@ public class ApplicationService : IApplicationService
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "DB transaction failed for citizen {KeycloakUserId}. Attempting to clean up {DocCount} uploaded files.",
-                request.KeycloakUserId, uploadedDocs.Count);
+                "DB transaction failed for citizen {CitizenUserId}. Attempting to clean up {DocCount} uploaded files.",
+                request.CitizenUserId, uploadedDocs.Count);
 
             await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
 
@@ -261,9 +257,9 @@ public class ApplicationService : IApplicationService
         return Result<ApplicationDto>.Ok(MapToDto(application));
     }
 
-    public async Task<Result<List<ApplicationDto>>> GetUserApplicationsAsync(UserApplicationDto queryParams)
+    public async Task<Result<List<ApplicationDto>>> GetUserApplicationsAsync(CitizenUserIdDto queryParams)
     {
-        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(queryParams.KeycloakUserId);
+        var citizenUser = await _citizenUserRepo.GetByIdAsync(queryParams.CitizenUserId);
         if (citizenUser is null)
             return _errors.Fail<List<ApplicationDto>>(ErrorCodes.PORTAL.UserNotFound);
 

@@ -23,11 +23,11 @@ public class ApplicationController : ControllerBase
     /// are saved in a single DB transaction (Outbox Pattern).
     [HttpPost("submit")]
     public async Task<IActionResult> SubmitApplication(
-        [FromForm] ApplicationCreateDto request,
-        [FromForm] List<IFormFile>? files,
+        [FromForm] ApplicationCreateDto request, 
+        [FromForm] List<IFormFile>? files,string? externalSystem,
         CancellationToken cancellationToken)
     {
-        var result = await _applicationService.SubmitApplicationAsync(request, files, cancellationToken);
+        var result = await _applicationService.SubmitApplicationAsync(request, files, externalSystem,cancellationToken);
 
         if (!result.Success)
             return Accepted(result);
@@ -37,8 +37,8 @@ public class ApplicationController : ControllerBase
 
     /// Get a specific application by its public tracking ID.
 
-    [HttpGet("{publicId:guid}")]
-    public async Task<IActionResult> GetApplication(Guid publicId)
+    [HttpGet("getApp")]
+    public async Task<IActionResult> GetApplication([FromQuery] Guid publicId)
     {
         //var keycloakUserId = GetKeycloakUserId();
         //if (keycloakUserId == Guid.Empty)
@@ -55,8 +55,8 @@ public class ApplicationController : ControllerBase
     /// <summary>
     /// List all applications for the authenticated citizen (paged).
     /// </summary>
-    [HttpGet]
-    public async Task<IActionResult> GetApplications([FromQuery] UserApplicationDto request)
+    [HttpGet("getUserApps")]
+    public async Task<IActionResult> GetApplications([FromQuery] CitizenUserIdDto request)
     {     
          var result = await _applicationService.GetUserApplicationsAsync(request);
 

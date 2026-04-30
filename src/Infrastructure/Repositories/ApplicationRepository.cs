@@ -33,7 +33,7 @@ public class ApplicationRepository : IApplicationRepository
             .ToListAsync();
     }
 
-    // No SaveChanges � caller commits the transaction (outbox pattern).
+    // No SaveChanges, caller commits the transaction (outbox pattern).
     public async Task AddWithoutSaveAsync (Domain.Entities.Application application)
     {
         await _dbContext.Applications.AddAsync(application);
