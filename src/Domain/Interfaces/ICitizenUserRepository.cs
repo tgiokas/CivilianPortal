@@ -6,7 +6,6 @@ public interface ICitizenUserRepository
 {
     Task<CitizenUser?> GetByIdAsync(int id);
     Task<CitizenUser?> GetByKeycloakUserIdAsync(Guid keycloakUserId);
-    Task<(CitizenUser User, bool Created)> GetOrCreateAsync(CitizenUser newUser);
-    Task AddAsync(CitizenUser user);
+    Task<(CitizenUser User, bool Created)> GetOrCreateAsync(CitizenUser newUser);    
     Task UpdateAsync(CitizenUser user);
 }

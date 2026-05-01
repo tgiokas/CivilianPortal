@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CitizenPortal.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260430130411_InitialMigration")]
+    [Migration("20260501175137_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -238,6 +238,10 @@ namespace CitizenPortal.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("key");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_at");
 
                     b.Property<string>("Payload")
                         .IsRequired()

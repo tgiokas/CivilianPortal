@@ -236,6 +236,10 @@ namespace CitizenPortal.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("key");
 
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_attempt_at");
+
                     b.Property<string>("Payload")
                         .IsRequired()
                         .HasColumnType("text")

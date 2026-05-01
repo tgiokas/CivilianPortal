@@ -53,12 +53,6 @@ public class CitizenUserRepository : ICitizenUserRepository
         }
     }
 
-    public async Task AddAsync(CitizenUser user)
-    {
-        await _dbContext.CitizenUsers.AddAsync(user);
-        await _dbContext.SaveChangesAsync();
-    }
-
     public async Task UpdateAsync(CitizenUser user)
     {
         user.ModifiedAt = DateTime.UtcNow;

@@ -43,6 +43,7 @@ namespace CitizenPortal.Infrastructure.Migrations
                     key = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     processed_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    last_attempt_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     retry_count = table.Column<int>(type: "integer", nullable: false),
                     error = table.Column<string>(type: "text", nullable: true)
                 },

@@ -42,7 +42,9 @@ public class OutboxRepository : IOutboxRepository
     {
         await _dbContext.OutboxMessages
             .Where(o => o.Id == id)
-            .ExecuteUpdateAsync(s => s.SetProperty(o => o.RetryCount, o => o.RetryCount + 1)
-            .SetProperty(a => a.Error, error));
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(o => o.RetryCount, o => o.RetryCount + 1)
+                .SetProperty(o => o.LastAttemptAt, DateTime.UtcNow)
+                .SetProperty(o => o.Error, error));
     }
 }
