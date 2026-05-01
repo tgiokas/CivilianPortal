@@ -22,7 +22,9 @@ public class OutboxProcessor : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMessagePublisher _publisher;
     private readonly ILogger<OutboxProcessor> _logger;
-    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(5);    
+
+    private const int MaxRetries = 5;
 
     public OutboxProcessor(
         IServiceScopeFactory scopeFactory,
@@ -96,6 +98,14 @@ public class OutboxProcessor : BackgroundService
                     message.EventId, message.RetryCount);
 
                 await outboxRepo.MarkAsFailedAsync(message.Id, ex.Message);
+
+                if (message.RetryCount + 1 >= MaxRetries)
+                {
+                    _logger.LogError(
+                        "Outbox message {EventId} (type={EventType}, key={Key}) has exhausted all {Max} retries " +
+                        "and will no longer be processed. Manual intervention required.",
+                        message.EventId, message.EventType, message.Key, MaxRetries);
+                }
             }
         }
     }

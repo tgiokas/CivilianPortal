@@ -118,12 +118,12 @@ public class AuthenticationService : IAuthenticationService
         // 3. Check if citizen exists in Citizen-portal DB
         var dbCitizen = await _citizenUserRepo.GetByKeycloakUserIdAsync(userId);
 
-        // 4. If not exists --> auto-provision
+        // 4. If not exists --> auto-provision (GetOrCreateAsync handles concurrent first-logins)
         if (dbCitizen == null)
         {
             _logger.LogInformation("New citizen login. Provisioning user {Email} (Keycloak: {UserId})", email, userId);
 
-            dbCitizen = new CitizenUser
+            var candidate = new CitizenUser
             {
                 KeycloakUserId = userId,
                 Email = email,
@@ -132,8 +132,13 @@ public class AuthenticationService : IAuthenticationService
                 TaxisNetId = taxisNetId
             };
 
-            await _citizenUserRepo.AddAsync(dbCitizen);
-            _logger.LogInformation("Citizen {Email} provisioned successfully (Id: {Id})", email, dbCitizen.Id);
+            var (provisioned, created) = await _citizenUserRepo.GetOrCreateAsync(candidate);
+            dbCitizen = provisioned;
+
+            if (created)
+                _logger.LogInformation("Citizen {Email} provisioned successfully (Id: {Id})", email, dbCitizen.Id);
+            else
+                _logger.LogWarning("Concurrent provisioning detected for {Email} (Keycloak: {UserId}); using existing record.", email, userId);
         }
         else
         {

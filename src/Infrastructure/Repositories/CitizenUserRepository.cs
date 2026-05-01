@@ -28,6 +28,31 @@ public class CitizenUserRepository : ICitizenUserRepository
             .FirstOrDefaultAsync(u => u.KeycloakUserId == keycloakUserId);
     }
 
+    public async Task<(CitizenUser User, bool Created)> GetOrCreateAsync(CitizenUser newUser)
+    {
+        await _dbContext.CitizenUsers.AddAsync(newUser);
+        try
+        {
+            await _dbContext.SaveChangesAsync();
+            return (newUser, true);
+        }
+        catch (DbUpdateException)
+        {
+            // A concurrent request inserted the same citizen between our read and write.
+            // Detach the failed entity so the change tracker is clean, then re-fetch.
+            _dbContext.Entry(newUser).State = EntityState.Detached;
+
+            var existing = await _dbContext.CitizenUsers
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.KeycloakUserId == newUser.KeycloakUserId);
+
+            if (existing is not null)
+                return (existing, false);
+
+            throw;
+        }
+    }
+
     public async Task AddAsync(CitizenUser user)
     {
         await _dbContext.CitizenUsers.AddAsync(user);
