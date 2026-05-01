@@ -18,16 +18,15 @@ public class ApplicationController : ControllerBase
     }
 
     /// Submit a new application with optional file attachments.
-    /// Citizen must already be provisioned (via oauth2callback on login).
     /// Files are uploaded to DMS.Storage, then the application + outbox event
     /// are saved in a single DB transaction (Outbox Pattern).
     [HttpPost("submit")]
     public async Task<IActionResult> SubmitApplication(
-        [FromForm] ApplicationCreateDto request, 
-        [FromForm] List<IFormFile>? files,string? externalSystem,
+        [FromForm] ApplicationCreateDto request,
+        [FromForm] List<IFormFile>? files, string externalSystem,
         CancellationToken cancellationToken)
     {
-        var result = await _applicationService.SubmitApplicationAsync(request, files, externalSystem,cancellationToken);
+        var result = await _applicationService.SubmitApplicationAsync(request, files, externalSystem, cancellationToken);
 
         if (!result.Success)
             return Accepted(result);
@@ -36,7 +35,6 @@ public class ApplicationController : ControllerBase
     }
 
     /// Get a specific application by its public tracking ID.
-
     [HttpGet("getApp")]
     public async Task<IActionResult> GetApplication([FromQuery] Guid publicId)
     {
@@ -52,13 +50,11 @@ public class ApplicationController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// List all applications for the authenticated citizen (paged).
-    /// </summary>
+    /// List all applications for a user.
     [HttpGet("getUserApps")]
-    public async Task<IActionResult> GetApplications([FromQuery] CitizenUserIdDto request)
+    public async Task<IActionResult> GetApplications([FromQuery] Guid userId)
     {     
-         var result = await _applicationService.GetUserApplicationsAsync(request);
+         var result = await _applicationService.GetUserApplicationsAsync(userId);
 
         if (!result.Success)
             return Accepted(result);

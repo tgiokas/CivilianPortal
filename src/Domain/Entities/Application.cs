@@ -6,7 +6,7 @@ public class Application
 {
     public int Id { get; set; }
     public Guid PublicId { get; set; } = Guid.NewGuid();  // External tracking ID
-    public int CitizenUserId { get; set; }
+    public int UserId { get; set; }
     public string Subject { get; set; } = string.Empty;
     public string Body { get; set; } = string.Empty;      // Rich text content
     public string Email { get; set; } = string.Empty;      // Contact email for this application

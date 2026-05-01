@@ -4,7 +4,7 @@ services:
   
 # ==================== Keycloak (shared — already exist in DMS stack) ====================
   keycloak:
-    image: quay.io/keycloak/keycloak:26.6.0
+    image: quay.io/keycloak/keycloak:26.5.6
     container_name: keycloak
     env_file:
       - .env

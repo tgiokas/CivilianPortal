@@ -18,8 +18,7 @@ public class AuthenticationController : ControllerBase
         _configuration = configuration;
     }
 
-    /// Simple username/password login via Keycloak Direct Access Grant.
-    /// POST /authentication/login
+    /// Simple username/password login via Keycloak Direct Access Grant    
     /// Will Not be deployed to production (For Testing Only)
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
@@ -44,9 +43,6 @@ public class AuthenticationController : ControllerBase
     }
 
     /// OAuth2 callback — GSIS/TaxisNet redirects here after citizen authenticates.
-    /// Exchanges the authorization code for tokens and auto-provisions the citizen
-    /// in our DB if they don't exist yet (same pattern as DMS.Auth).
-    /// Flow: GSIS login → Keycloak CitizenRealm → redirect with code → this endpoint
     [HttpGet("oauth2callback")]
     public async Task<IActionResult> OAuth2Callback()
     {

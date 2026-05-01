@@ -63,7 +63,7 @@ public class ApplicationService : IApplicationService
         CancellationToken cancellationToken = default)
     {
         // 1. Verify citizen user exists
-        var citizenUser = await _citizenUserRepo.GetByIdAsync(request.CitizenUserId);
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(request.UserId);
         if (citizenUser is null)
         {
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.UserNotFound);
@@ -93,7 +93,7 @@ public class ApplicationService : IApplicationService
         {
             _logger.LogError(ex,
                 "Failed to generate application PDF for citizen {CitizenUserId}",
-                request.CitizenUserId);
+                request.UserId);
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.PdfGenerationFailed);
         }
 
@@ -195,7 +195,7 @@ public class ApplicationService : IApplicationService
             var application = new Domain.Entities.Application
             {
                 PublicId = applicationPublicId,
-                CitizenUserId = citizenUser.Id,
+                UserId = citizenUser.Id,
                 Subject = request.Subject,
                 Body = request.Body,
                 Email = request.Email,
@@ -236,7 +236,7 @@ public class ApplicationService : IApplicationService
             _logger.LogInformation(
                 "Application {PublicId} submitted by citizen {CitizenUserId}: " +
                 "1 application form + {AttachmentCount} attachment(s). Outbox message created.",
-                application.PublicId, request.CitizenUserId, uploadedDocs.Count - 1);
+                application.PublicId, request.UserId, uploadedDocs.Count - 1);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
@@ -249,7 +249,7 @@ public class ApplicationService : IApplicationService
         {
             _logger.LogError(ex,
                 "DB transaction failed for citizen {CitizenUserId}. Attempting to clean up {DocCount} uploaded files.",
-                request.CitizenUserId, uploadedDocs.Count);
+                request.UserId, uploadedDocs.Count);
 
             await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
 
@@ -267,13 +267,13 @@ public class ApplicationService : IApplicationService
         return Result<ApplicationDto>.Ok(MapToDto(application));
     }
 
-    public async Task<Result<List<ApplicationDto>>> GetUserApplicationsAsync(CitizenUserIdDto queryParams)
+    public async Task<Result<List<ApplicationDto>>> GetUserApplicationsAsync(Guid keycloakUserId)
     {
-        var citizenUser = await _citizenUserRepo.GetByIdAsync(queryParams.CitizenUserId);
+        var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(keycloakUserId);
         if (citizenUser is null)
             return _errors.Fail<List<ApplicationDto>>(ErrorCodes.PORTAL.UserNotFound);
 
-        var applications = await _applicationRepo.GetByCitizenUserIdAsync(citizenUser.Id);
+        var applications = await _applicationRepo.GetByUserIdAsync(citizenUser.Id);
 
         var result = applications
             .Select(MapToDto)

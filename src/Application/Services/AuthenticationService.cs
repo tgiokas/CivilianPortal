@@ -28,7 +28,6 @@ public class AuthenticationService : IAuthenticationService
         _logger = logger;
     }
 
-    /// Username/password login via Keycloak Direct Access Grant.
     public async Task<Result<LoginResponseDto>> LoginAsync(LoginRequestDto request)
     {
         var tokenResponse = await _keycloakClientAuth.GetUserAccessTokenAsync(
@@ -47,7 +46,7 @@ public class AuthenticationService : IAuthenticationService
     /// 1. Exchange authorization code for tokens via Keycloak
     /// 2. Parse JWT claims (sub, email, name, taxisnet_id)
     /// 3. Check if citizen exists in our DB
-    /// 4. If not → auto-provision (create CitizenUser)
+    /// 4. If not -> auto-provision (create CitizenUser)
     /// 5. Return tokens + citizen info
     public async Task<Result<LoginResponseDto>> OAuth2CallbackAsync(string code)
     {
@@ -90,8 +89,8 @@ public class AuthenticationService : IAuthenticationService
         return Result<bool>.Ok(true, message: "Logout successful");
     }
 
-    // Private: shared logic for JWT parsing + citizen auto-provisioning
-    // Used by both LoginAsync (password grant) and OAuth2CallbackAsync (code grant)
+    /// Private: shared logic for JWT parsing + citizen auto-provisioning
+    /// Used by both LoginAsync (password grant) and OAuth2CallbackAsync (code grant)
     private async Task<Result<LoginResponseDto>> ProcessTokenAndProvisionCitizen(TokenDto tokenResponse)
     {
         var handler = new JwtSecurityTokenHandler();

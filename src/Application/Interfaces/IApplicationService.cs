@@ -11,6 +11,6 @@ public interface IApplicationService
         string externalSystem,
         CancellationToken cancellationToken = default);
     Task<Result<ApplicationDto>> GetApplicationAsync(Guid publicId);
-    Task<Result<List<ApplicationDto>>> GetUserApplicationsAsync(CitizenUserIdDto queryParams);
+    Task<Result<List<ApplicationDto>>> GetUserApplicationsAsync(Guid keycloakUserId);
     Task<Result<bool>> UpdateStatusFromDmsAsync(ProtocolAssignedEvent protocolEvent);
 }

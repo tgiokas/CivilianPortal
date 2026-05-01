@@ -47,12 +47,12 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(a => a.ProtocolNumber).HasMaxLength(50);
             
             entity.HasIndex(a => a.PublicId).IsUnique();
-            entity.HasIndex(a => a.CitizenUserId);
+            entity.HasIndex(a => a.UserId);
             entity.HasIndex(a => a.Status);
 
             entity.HasOne(a => a.CitizenUser)
                   .WithMany(u => u.Applications)
-                  .HasForeignKey(a => a.CitizenUserId)
+                  .HasForeignKey(a => a.UserId)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 

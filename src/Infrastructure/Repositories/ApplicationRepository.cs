@@ -23,12 +23,12 @@ public class ApplicationRepository : IApplicationRepository
             .FirstOrDefaultAsync(a => a.PublicId == publicId);
     }
 
-    public async Task<List<Domain.Entities.Application>> GetByCitizenUserIdAsync(int citizenUserId)
+    public async Task<List<Domain.Entities.Application>> GetByUserIdAsync(int userId)
     {
         return await _dbContext.Applications
             .AsNoTracking()
             .Include(a => a.Documents)
-            .Where(a => a.CitizenUserId == citizenUserId)
+            .Where(a => a.UserId == userId)
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();
     }
