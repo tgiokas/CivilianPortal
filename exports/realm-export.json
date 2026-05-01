@@ -619,8 +619,7 @@
       "display.on.consent.screen" : "false",
       "request.object.encryption.enc" : "any",
       "client.session.max.lifespan" : "28800",
-      "client.session.idle.timeout" : "28800",
-      "token.response.type.bearer.lower-case" : "false"
+       "token.response.type.bearer.lower-case" : "false"
     },
     "authenticationFlowBindingOverrides" : { },
     "fullScopeAllowed" : true,

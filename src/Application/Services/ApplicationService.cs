@@ -263,11 +263,9 @@ public class ApplicationService : IApplicationService
         if (citizenUser is null)
             return _errors.Fail<List<ApplicationDto>>(ErrorCodes.PORTAL.UserNotFound);
 
-        var applications = await _applicationRepo.GetByCitizenUserIdAsync(citizenUser.Id);       
-
-        var total = applications.Count;
-        var result = applications
-            .OrderByDescending(a => a.CreatedAt)
+        var applications = await _applicationRepo.GetByCitizenUserIdAsync(citizenUser.Id);
+        
+        var result = applications            
             .Select(MapToDto)
             .ToList();
 

@@ -4,18 +4,18 @@ services:
   
 # ==================== Keycloak (shared — already exist in DMS stack) ====================
   keycloak:
-    image: quay.io/keycloak/keycloak:26.3.4
+    image: quay.io/keycloak/keycloak:26.6.0
     container_name: keycloak
     env_file:
       - .env
     command:
-      - start      
+      - start-dev      
       - --import-realm   
       - --https-certificate-file=/opt/keycloak/certs/keycloak.crt
       - --https-certificate-key-file=/opt/keycloak/certs/keycloak.key
       - --https-port=8443
       - --hostname-strict=false 
-      - --log-level=INFO,org.keycloak.broker:DEBUG,org.keycloak.events:DEBUG,org.keycloak.protocol:DEBUG,org.apache.http.wire:DEBUG,org.apache.http.headers:DEBUG
+      - --log-level=INFO,org.keycloak.broker:DEBUG,org.keycloak.events:DEBUG
 
     depends_on:
       - keycloak-db
@@ -26,7 +26,7 @@ services:
       - portal-network   
     volumes:
       - ./exports/realm-export.json:/opt/keycloak/data/import/realm-export.json
-      - ./keycloak-providers/keycloak-gsis-providers.jar:/opt/keycloak/providers/keycloak-gsis-providers.jar
+      - ./keycloak-providers/keycloak-gsis-provider_gunet.jar:/opt/keycloak/providers/keycloak-gsis-provider.jar
       - ./certs:/opt/keycloak/certs
 
   keycloak-db:
@@ -136,7 +136,7 @@ services:
       kafka1:
         condition: service_started
     ports:
-      - "5050:8080"
+      - "5051:8080"
     networks:
       - portal-network
       - storage-network

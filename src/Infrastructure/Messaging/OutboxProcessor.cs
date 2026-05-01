@@ -17,7 +17,6 @@ namespace CitizenPortal.Infrastructure.Messaging;
 /// 
 /// If Kafka is down, messages accumulate in the outbox and get retried.
 /// If the service restarts, unprocessed messages are picked up again.
-
 public class OutboxProcessor : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
