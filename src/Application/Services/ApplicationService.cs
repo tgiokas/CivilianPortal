@@ -16,8 +16,9 @@ public class ApplicationService : IApplicationService
 {
     private const string CitizenPortalBucket = "citizen-portal";
     private const string ApplicationFormFileName = "application-form.pdf";
-    private const string ApplicationFormContentType = "application/pdf";    
+    private const string ApplicationFormContentType = "application/pdf";
     private const string ApplicationFormKeyTemplate = "applications/{0}/generated/application-form.pdf";
+    private const long MaxAttachmentBytes = 500L * 1024 * 1024; // 500 MB storage backend limit
 
     private readonly IApplicationRepository _applicationRepo;
     private readonly ICitizenUserRepository _citizenUserRepo;
@@ -55,7 +56,7 @@ public class ApplicationService : IApplicationService
         _logger = logger;
     }
 
-    public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(        
+    public async Task<Result<ApplicationSubmittedDto>> SubmitApplicationAsync(
         ApplicationCreateDto request,
         List<IFormFile>? files,
         string externalSystemId,
@@ -84,7 +85,7 @@ public class ApplicationService : IApplicationService
                 Body = request.Body,
                 CitizenEmail = request.Email,
                 CitizenFirstName = citizenUser.FirstName,
-                CitizenLastName = citizenUser.LastName,                
+                CitizenLastName = citizenUser.LastName,
                 SubmittedAt = submittedAt
             });
         }
@@ -143,6 +144,15 @@ public class ApplicationService : IApplicationService
         {
             foreach (var file in files)
             {
+                if (file.Length > MaxAttachmentBytes)
+                {
+                    _logger.LogWarning(
+                        "Attachment {FileName} rejected: size {Size} bytes exceeds the {Limit} MB limit.",
+                        file.FileName, file.Length, MaxAttachmentBytes / 1024 / 1024);
+                    await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
+                    return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.FileTooLarge);
+                }
+
                 var storageKey = $"applications/{applicationPublicId}/attachments/{Guid.NewGuid():N}-{file.FileName}";
 
                 try
@@ -194,14 +204,14 @@ public class ApplicationService : IApplicationService
                 Documents = uploadedDocs
             };
 
-            await _applicationRepo.AddWithoutSaveAsync (application);
+            await _applicationRepo.AddWithoutSaveAsync(application);
 
             var outboxEvent = new ApplicationSubmittedEvent
             {
                 ApplicationPublicId = application.PublicId,
                 ExternalSystemId = externalSystemId,
-                Subject = application.Subject,                
-                Email = application.Email,                
+                Subject = application.Subject,
+                Email = application.Email,
                 Documents = uploadedDocs.Select(d => new StorageDocumentLocator
                 {
                     Bucket = d.StorageBucket,
@@ -248,7 +258,7 @@ public class ApplicationService : IApplicationService
     }
 
     public async Task<Result<ApplicationDto>> GetApplicationAsync(Guid publicId)
-    {       
+    {
 
         var application = await _applicationRepo.GetByPublicIdAsync(publicId);
         if (application is null)
@@ -264,8 +274,8 @@ public class ApplicationService : IApplicationService
             return _errors.Fail<List<ApplicationDto>>(ErrorCodes.PORTAL.UserNotFound);
 
         var applications = await _applicationRepo.GetByCitizenUserIdAsync(citizenUser.Id);
-        
-        var result = applications            
+
+        var result = applications
             .Select(MapToDto)
             .ToList();
 

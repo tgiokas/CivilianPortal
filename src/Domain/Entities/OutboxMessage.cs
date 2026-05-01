@@ -12,6 +12,7 @@ public class OutboxMessage
     public string? Key { get; set; }                          // Kafka partition key
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ProcessedAt { get; set; }                // null = pending, set = published
+    public DateTime? LastAttemptAt { get; set; }             // When the last publish attempt was made
     public int RetryCount { get; set; } = 0;
     public string? Error { get; set; }                        // Last error if any
 }
