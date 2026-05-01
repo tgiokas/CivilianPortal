@@ -7,6 +7,7 @@ using Microsoft.Extensions.Options;
 using Confluent.Kafka;
 
 using CitizenPortal.Application.Configuration;
+using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Application.Dtos;
 
@@ -99,12 +100,38 @@ public class ProtocolAssignedConsumer : BackgroundService
                         using var scope = _scopeFactory.CreateScope();
                         var appService = scope.ServiceProvider.GetRequiredService<IApplicationService>();
 
-                        await appService.UpdateStatusFromDmsAsync(payload);
+                        var updateResult = await appService.UpdateStatusFromDmsAsync(payload);
+
+                        if (!updateResult.Success)
+                        {
+                            if (updateResult.ErrorCode == ErrorCodes.PORTAL.ApplicationNotFound)
+                            {
+                                // Application unknown or protocol already assigned (idempotency guard).
+                                // Retrying will not help — log and fall through to commit.
+                                _logger.LogWarning(
+                                    "Protocol assignment for {PublicId} skipped (ErrorCode={ErrorCode}): {Message}. Committing offset.",
+                                    payload.ApplicationPublicId, updateResult.ErrorCode, updateResult.Message);
+                            }
+                            else
+                            {
+                                // Transient or unexpected failure — throw so the outer catch handler
+                                // backs off 1 s and retries without committing the offset.
+                                throw new InvalidOperationException(
+                                    $"UpdateStatusFromDmsAsync failed for {payload.ApplicationPublicId}: " +
+                                    $"{updateResult.ErrorCode} – {updateResult.Message}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning(
+                            "Received unparseable message at {TPO}; committing to skip.",
+                            result.TopicPartitionOffset);
                     }
 
-                    _consumer.Commit(result); // success
+                    _consumer.Commit(result);
 
-                    _logger.LogInformation("Offset commited at {TPO} ", result.TopicPartitionOffset);
+                    _logger.LogInformation("Offset committed at {TPO}", result.TopicPartitionOffset);
                 }
                 catch (ConsumeException ex)
                 {
