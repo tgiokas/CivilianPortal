@@ -23,7 +23,8 @@ public class ApplicationController : ControllerBase
     [HttpPost("submit")]
     public async Task<IActionResult> SubmitApplication(
         [FromForm] ApplicationCreateDto request,
-        [FromForm] List<IFormFile>? files, string externalSystem,
+        [FromForm] List<IFormFile>? files, 
+        [FromForm] string externalSystem,
         CancellationToken cancellationToken)
     {
         var result = await _applicationService.SubmitApplicationAsync(request, files, externalSystem, cancellationToken);
