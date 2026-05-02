@@ -25,13 +25,21 @@ public abstract class ApiClientBase
 
     protected async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
+        var contentType = request.Content?.Headers.ContentType?.MediaType ?? string.Empty;
 
-        string requestBodyRaw = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : string.Empty;
-
-        string requestBody = requestBodyRaw;
-        if (request.Content?.Headers.ContentType?.MediaType?.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase) == true)
+        string requestBody;
+        if (contentType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
         {
+            requestBody = $"[{contentType}]";
+        }
+        else if (contentType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+        {
+            var requestBodyRaw = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : string.Empty;
             requestBody = FormUrlEncodedRedactor.TryRedact(requestBodyRaw);
+        }
+        else
+        {
+            requestBody = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : string.Empty;
         }
 
         var sw = Stopwatch.StartNew();

@@ -23,11 +23,8 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private string tokenEndpoint
-       => $"/realms/{_realm}/protocol/openid-connect/token";
-
-    private string logoutEndpoint
-        => $"/realms/{_realm}/protocol/openid-connect/logout";
+    private string tokenEndpoint => $"/realms/{_realm}/protocol/openid-connect/token";
+    private string logoutEndpoint => $"/realms/{_realm}/protocol/openid-connect/logout";
 
     public KeycloakApiClient(HttpClient httpClient, IOptions<KeycloakSettings> keycloakOptions, ILogger<KeycloakApiClient> logger)
         : base(httpClient, logger)
@@ -38,7 +35,7 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
         _clientId = settings.ClientId;
         _clientSecret = settings.ClientSecret;
         _redirectUri = settings.RedirectUri;
-    }   
+    }
 
     /// Get Access Token using authorization code (Authorization Code Grant).
     /// Called after GSIS/TaxisNet redirects back with a code.
@@ -73,9 +70,9 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
     {
         var parameters = new Dictionary<string, string>
         {
-            ["grant_type"] = "password",           
+            ["grant_type"] = "password",
             ["client_id"] = _clientId,
-            ["client_secret"] = _clientSecret,           
+            ["client_secret"] = _clientSecret,
             ["username"] = username,
             ["password"] = password
         };
@@ -137,5 +134,5 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
 
         var response = await SendRequestAsync(request);
         return response.IsSuccessStatusCode;
-    }    
+    }
 }

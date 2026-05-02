@@ -16,11 +16,8 @@ public class StorageApiClient : ApiClientBase, IStorageApiClient
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private static string storageUploadEndpoint
-        => $"/Documents/upload";
-
-    private static string storageDeleteEndpoint
-        => $"/Documents/delete";
+    private const string storageUploadEndpoint = $"/Documents/upload";
+    private const string storageDeleteEndpoint = $"/Documents/delete";
 
     public StorageApiClient(HttpClient httpClient, ILogger<StorageApiClient> logger)
         : base(httpClient, logger)
