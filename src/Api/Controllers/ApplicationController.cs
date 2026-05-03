@@ -36,7 +36,7 @@ public class ApplicationController : ControllerBase
     }
 
     /// Get a specific application by its public tracking ID.
-    [HttpGet("getApp")]
+    [HttpGet("get")]
     public async Task<IActionResult> GetApplication([FromQuery] Guid publicId)
     {
         //var keycloakUserId = GetKeycloakUserId();
@@ -52,7 +52,7 @@ public class ApplicationController : ControllerBase
     }
 
     /// List all applications for a user.
-    [HttpGet("getUserApps")]
+    [HttpGet("get-user-apps")]
     public async Task<IActionResult> GetApplications([FromQuery] Guid userId)
     {     
          var result = await _applicationService.GetUserApplicationsAsync(userId);

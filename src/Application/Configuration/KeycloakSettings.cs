@@ -2,11 +2,9 @@ using Microsoft.Extensions.Configuration;
 
 namespace CitizenPortal.Application.Configuration;
 
-/// <summary>
 /// Keycloak configuration bound from environment variables.
 /// Used for JWT Bearer validation in Program.cs and for
 /// token exchange in KeycloakClientAuthentication.
-/// </summary>
 public class KeycloakSettings
 {
     public string BaseUrl { get; set; } = string.Empty;

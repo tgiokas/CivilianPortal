@@ -2,16 +2,14 @@ using Microsoft.Extensions.Configuration;
 
 namespace CitizenPortal.Application.Configuration;
 
-/// <summary>
 /// General CitizenPortal settings bound from environment variables.
 /// Covers DB connection and frontend redirect URI.
-/// </summary>
 public class PortalSettings
 {
-    // Database
+    /// Database
     public string DbConnection { get; set; } = string.Empty;
 
-    // Frontend redirect after OAuth2 callback
+    /// Frontend redirect after OAuth2 callback
     public string FrontendRedirectUri { get; set; } = string.Empty;
 
     public static PortalSettings BindFromConfiguration(IConfiguration configuration)

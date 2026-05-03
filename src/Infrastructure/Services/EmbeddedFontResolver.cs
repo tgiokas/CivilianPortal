@@ -12,7 +12,6 @@ namespace CitizenPortal.Infrastructure.Services;
 /// Register once at startup via <see cref="Register"/>. PdfSharpCore uses a
 /// process-wide static resolver (<c>GlobalFontSettings.FontResolver</c>), so
 /// this intentionally isn't a DI-scoped service.
-
 public class EmbeddedFontResolver : IFontResolver
 {
     /// Logical family name to pass to <c>new XFont(...)</c> in generator code.
@@ -67,7 +66,6 @@ public class EmbeddedFontResolver : IFontResolver
     /// Register this resolver as PdfSharpCore's global font resolver.
     /// Call once at startup, before any PDF is generated.
     /// Safe to call multiple times — last call wins.
-
     public static void Register()
     {
         GlobalFontSettings.FontResolver = new EmbeddedFontResolver();

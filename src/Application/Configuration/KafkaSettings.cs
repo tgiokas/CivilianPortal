@@ -3,6 +3,8 @@ using Microsoft.Extensions.Configuration;
 
 namespace CitizenPortal.Application.Configuration;
 
+/// Kafka settings bound from environment variables.
+/// Covers Broker connection, producer, and consumer settings.
 public class KafkaSettings
 {
     // Bootstrap servers

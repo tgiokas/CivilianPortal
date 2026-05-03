@@ -2,10 +2,8 @@ using Microsoft.Extensions.Configuration;
 
 namespace CitizenPortal.Application.Configuration;
 
-/// <summary>
 /// DMS.Storage HTTP client settings bound from environment variables.
-/// Used to configure the HttpClient for file uploads via Traefik.
-/// </summary>
+/// Used to configure the HttpClient for file uploads.
 public class StorageClientSettings
 {
     // Base URL for DMS.Storage API (e.g. "http://dms-storage:8080")
