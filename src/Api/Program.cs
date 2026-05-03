@@ -68,11 +68,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-//builder.Services.AddAuthorization(options =>
-//{
-//    options.AddPolicy("CitizenOnly", policy => policy.RequireRole("citizen"));
-//});
-
 // Add CORS policy
 builder.Services.AddCors(options =>
 {
@@ -120,4 +115,3 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
