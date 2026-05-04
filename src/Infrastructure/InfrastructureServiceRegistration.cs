@@ -22,7 +22,7 @@ public static class InfrastructureServiceRegistration
     public static IServiceCollection AddInfrastructureServices(
         this IServiceCollection services, IConfiguration configuration)
     {
-        // === Bind Settings from env variables (same pattern as Auth) ===
+        // === Bind Settings from env variables
         var portalSettings = PortalSettings.BindFromConfiguration(configuration);
         services.AddSingleton(Options.Create(portalSettings));
 
@@ -57,10 +57,8 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IOutboxRepository, OutboxRepository>();
 
         // === Application PDF generation ===
-        // PdfSharpCore uses a process-wide static font resolver. Our resolver
-        // reads TTF files embedded inside this assembly, so it works identically
-        // on Windows dev machines, Linux containers, and CI runners — no host
-        // fonts, no filesystem paths, no surprises.
+        // PdfSharpCore uses a process-wide static font resolver. The resolver
+        // reads TTF files embedded inside this assembly.
         EmbeddedFontResolver.Register();
         services.AddSingleton<IApplicationPdfGenerator, PdfSharpApplicationPdfGenerator>();
 
