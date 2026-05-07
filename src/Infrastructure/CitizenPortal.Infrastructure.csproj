@@ -17,6 +17,7 @@
     <ProjectReference Include="..\Domain\CitizenPortal.Domain.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.1">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

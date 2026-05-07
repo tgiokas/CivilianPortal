@@ -18,30 +18,6 @@ public class AuthenticationController : ControllerBase
         _configuration = configuration;
     }
 
-    /// Simple username/password login via Keycloak Direct Access Grant    
-    /// Will Not be deployed to production (For Testing Only)
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-        {
-            return BadRequest(Result<string>.Fail("Username and password are required."));
-        }
-
-        var result = await _authenticationService.LoginAsync(request);
-        if (result == null || !result.Success)
-        {
-            return Accepted(result);
-        }
-        
-        if (!string.IsNullOrWhiteSpace(result.Data?.RefreshToken))
-        {
-            AppendRefreshTokenCookie(result.Data.RefreshToken);
-        }
-
-        return Ok(result);
-    }
-
     /// OAuth2 callback — GSIS/TaxisNet redirects here after citizen authenticates.
     [HttpGet("oauth2callback")]
     public async Task<IActionResult> OAuth2Callback()

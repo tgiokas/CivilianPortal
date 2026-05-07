@@ -68,14 +68,15 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// Add CORS policy
+// CORS: AllowAnyOrigin is incompatible with credentials (SPA fetch + cookies).
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policyBuilder =>
     {
-        policyBuilder.AllowAnyOrigin();
-        policyBuilder.AllowAnyMethod();
-        policyBuilder.AllowAnyHeader();
+        policyBuilder.WithOrigins(keycloakSettings.FrontendRedirectUri.TrimEnd('/'))
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
     });
 }); 
 

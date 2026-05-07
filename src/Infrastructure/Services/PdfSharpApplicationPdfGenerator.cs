@@ -1,10 +1,9 @@
 using System.Globalization;
-using System.Text;
 using Microsoft.Extensions.Logging;
 
 using PdfSharpCore.Drawing;
-using PdfSharpCore.Drawing.Layout;
 using PdfSharpCore.Pdf;
+using HtmlAgilityPack;
 
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
@@ -49,76 +48,58 @@ public class PdfSharpApplicationPdfGenerator : IApplicationPdfGenerator
         page.Size = PdfSharpCore.PageSize.A4;
 
         using var gfx = XGraphics.FromPdfPage(page);
-        var tf = new XTextFormatter(gfx)
-        {
-            Alignment = XParagraphAlignment.Left
-        };
 
         // Fonts
-        var titleFont = new XFont(FontFamily, 18, XFontStyle.Bold);
+        var titleFont = new XFont(FontFamily, 11, XFontStyle.Bold | XFontStyle.Underline);
         var labelFont = new XFont(FontFamily, 10, XFontStyle.Bold);
         var bodyFont = new XFont(FontFamily, 11, XFontStyle.Regular);
+        var boldBodyFont = new XFont(FontFamily, 11, XFontStyle.Bold);
         var smallFont = new XFont(FontFamily, 9, XFontStyle.Regular);
 
         var contentWidth = page.Width - PageMarginLeft - PageMarginRight;
         var y = PageMarginTop;
 
         // Title
-        gfx.DrawString("ΑΙΤΗΣΗ", titleFont, XBrushes.Black,
+        gfx.DrawString("ΒΕΒΑΙΩΣΗ ΚΑΤΑΧΩΡΗΣΗΣ ΑΙΤΗΣΗΣ", titleFont, XBrushes.Black,
             new XRect(PageMarginLeft, y, contentWidth, 24),
             XStringFormats.TopCenter);
-        y += 32;
+        y += 30;
 
         // ── Tracking / submission metadata
         var greekCulture = CultureInfo.GetCultureInfo("el-GR");
-        var submittedLocal = data.SubmittedAt.ToLocalTime()
-            .ToString("dd/MM/yyyy HH:mm", greekCulture);
+        var submittedLocal = data.SubmittedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm", greekCulture);
+        var valueColumnOffset = PageMarginLeft + 180;
 
-        y = DrawLabelValue(gfx, tf, labelFont, bodyFont,
-            "Κωδικός Παρακολούθησης:", data.ApplicationPublicId.ToString(),
-            PageMarginLeft, y, contentWidth);
+        // ── Θέμα
+        gfx.DrawString("Θέμα:", labelFont, XBrushes.Black, PageMarginLeft, y + 10);
+        y = DrawLabelValue(gfx, bodyFont, data.Subject ?? string.Empty,
+            valueColumnOffset, y, contentWidth - 150);
 
-        y = DrawLabelValue(gfx, tf, labelFont, bodyFont,
-            "Ημερομηνία Υποβολής:", submittedLocal,
-            PageMarginLeft, y, contentWidth);
+        // ── Αριθμός Συνημμένων
+        gfx.DrawString("Αριθμός Συνημμένων:", labelFont, XBrushes.Black, PageMarginLeft, y + 10);
+        y = DrawLabelValue(gfx, bodyFont, data.AttachmentNumber ?? string.Empty,
+            valueColumnOffset, y, contentWidth - 150);
 
-        y += 10;
+        // ── Ονοματεπώνυμο Αποστολέα
+        gfx.DrawString("Ονοματεπώνυμο Αποστολέα:", labelFont, XBrushes.Black, PageMarginLeft, y + 10);
+        y = DrawLabelValue(gfx, bodyFont, data.CitizenFullName ?? string.Empty,
+            valueColumnOffset, y, contentWidth - 150);
 
-        // Citizen block
-        gfx.DrawString("Στοιχεία Αιτούντος", labelFont, XBrushes.Black,
-            PageMarginLeft, y);
-        y += 16;
+        // ── Email Αποστολέα
+        gfx.DrawString("Email Αποστολέα:", labelFont, XBrushes.Black, PageMarginLeft, y + 10);
+        y = DrawLabelValue(gfx, bodyFont, data.CitizenEmail ?? string.Empty,
+            valueColumnOffset, y, contentWidth - 150);
 
-        if (!string.IsNullOrWhiteSpace(data.CitizenFullName))
-        {
-            y = DrawLabelValue(gfx, tf, labelFont, bodyFont,
-                "Ονοματεπώνυμο:", data.CitizenFullName,
-                PageMarginLeft, y, contentWidth);
-        }       
-
-        y = DrawLabelValue(gfx, tf, labelFont, bodyFont,
-            "Email Επικοινωνίας:", data.CitizenEmail,
-            PageMarginLeft, y, contentWidth);
-
-        y += 10;
-
-        // ── Subject
-        gfx.DrawString("Θέμα", labelFont, XBrushes.Black, PageMarginLeft, y);
-        y += 14;
-        var subjectRect = new XRect(PageMarginLeft, y, contentWidth, 40);
-        tf.DrawString(data.Subject ?? string.Empty, bodyFont, XBrushes.Black, subjectRect);
-        y += 40;
-
+        y += 30;
         // ── Body
-        gfx.DrawString("Κυρίως Μέρος", labelFont, XBrushes.Black, PageMarginLeft, y);
-        y += 14;
+        var bodyHeight = page.Height - PageMarginBottom - 20;
 
-        var bodyText = NormalizeBody(data.Body);
-        var bodyHeight = page.Height - y - PageMarginBottom - 40; // leave room for footer
-        var bodyRect = new XRect(PageMarginLeft, y, contentWidth, bodyHeight);
-        tf.DrawString(bodyText, bodyFont, XBrushes.Black, bodyRect);
+        gfx.DrawString("Κυρίως Μέρος:", labelFont, XBrushes.Black, PageMarginLeft, y + 10);
+        y += 16;
+        y = DrawHtmlBody(gfx, bodyFont, boldBodyFont, data.Body,
+            PageMarginLeft, y, contentWidth, bodyHeight);
 
-        // ── Footer (gfx.DrawString again — XStringFormat is fine here)
+        // ── Footer
         var footerY = page.Height - PageMarginBottom + 10;
         var footer = $"ΕΚΔΔΑ — Ηλεκτρονικό Πρωτόκολλο · " +
                      $"Έγγραφο παραγόμενο αυτόματα · " +
@@ -138,51 +119,195 @@ public class PdfSharpApplicationPdfGenerator : IApplicationPdfGenerator
 
         return bytes;
     }
-
-    /// Draws a "Label: value" row and returns the updated Y cursor.
-    /// Label is drawn with gfx.DrawString (simple, single-line), value is
-    /// drawn with the XTextFormatter inside a rect so long values wrap.
-    private static double DrawLabelValue(
-        XGraphics gfx, XTextFormatter tf,
-        XFont labelFont, XFont valueFont,
-        string label, string value, double x, double y, double contentWidth)
+   
+    /// Draws plain text starting at (<paramref name="x"/>, <paramref name="y"/>) with word-wrap
+    /// and returns the updated Y cursor. Stops early if the next line would exceed <paramref name="maxY"/>.
+    private static double DrawLabelValue(XGraphics gfx, XFont font, string text,
+        double x, double y, double maxWidth, double maxY = double.MaxValue)
     {
-        const double labelWidth = 150;
-        gfx.DrawString(label, labelFont, XBrushes.Black, x, y + 10);
-        tf.DrawString(value, valueFont, XBrushes.Black,
-            new XRect(x + labelWidth, y, contentWidth - labelWidth, 16));
-        return y + 16;
-    }
+        double lineHeight = 16;
 
-    /// Body is plain text per product decision, but we still defensively
-    /// normalize line endings and trim excessive whitespace so the PDF renders
-    /// cleanly regardless of what the frontend sends.
-    private static string NormalizeBody(string? body)
-    {
-        if (string.IsNullOrWhiteSpace(body))
-            return string.Empty;
-
-        var normalized = body
-            .Replace("\r\n", "\n")
-            .Replace("\r", "\n");
-
-        // Collapse runs of 3+ blank lines down to 2.
-        var sb = new StringBuilder(normalized.Length);
-        int consecutiveNewlines = 0;
-        foreach (var ch in normalized)
+        foreach (var paragraph in text.Split('\n'))
         {
-            if (ch == '\n')
+            var currentLine = string.Empty;
+
+            foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
-                consecutiveNewlines++;
-                if (consecutiveNewlines <= 2) sb.Append(ch);
+                var candidate = currentLine.Length == 0 ? word : currentLine + " " + word;
+
+                if (gfx.MeasureString(candidate, font).Width > maxWidth && currentLine.Length > 0)
+                {
+                    if (y + 10 > maxY) return y;
+                    gfx.DrawString(currentLine, font, XBrushes.Black, x, y + 10);
+                    currentLine = word;
+                    y += lineHeight;
+                }
+                else
+                {
+                    currentLine = candidate;
+                }
             }
-            else
+
+            if (currentLine.Length > 0 && y + 10 <= maxY)
+                gfx.DrawString(currentLine, font, XBrushes.Black, x, y + 10);
+
+            y += lineHeight;
+        }
+
+        return y;
+    }
+   
+    /// Parses <paramref name="html"/> into styled word tokens, then lays them out
+    /// left-to-right with word-wrap and variable line heights for headings.
+    /// Returns the updated Y cursor.    
+    private static double DrawHtmlBody(XGraphics gfx, XFont regularFont, XFont boldFont,
+        string html, double x, double y, double maxWidth, double maxY = double.MaxValue)
+    {
+        var tokens = ParseHtmlToTokens(html);
+        var fontCache = new Dictionary<(int size, bool bold), XFont>
+        {
+            { (11, false), regularFont },
+            { (11, true),  boldFont    },
+        };
+
+        var currentLine = new List<(string text, XFont font, bool underline, double xOffset, int fontSize)>();
+        double lineX = 0;
+
+        foreach (var token in tokens)
+        {
+            if (y > maxY) break;
+
+            if (token is null) { FlushHtmlLine(gfx, x, currentLine, ref lineX, ref y); continue; }
+
+            var font = GetOrCreateFont(fontCache, token.FontSize, token.Bold);
+            var wordWidth = gfx.MeasureString(token.Text, font).Width;
+
+            if (lineX > 0 && lineX + wordWidth > maxWidth)
+                FlushHtmlLine(gfx, x, currentLine, ref lineX, ref y);
+
+            if (lineX == 0 && string.IsNullOrWhiteSpace(token.Text))
+                continue;
+
+            currentLine.Add((token.Text, font, token.Underline, lineX, token.FontSize));
+            lineX += wordWidth;
+        }
+
+        if (y <= maxY) FlushHtmlLine(gfx, x, currentLine, ref lineX, ref y);
+
+        return y;
+    }
+   
+    /// Returns a cached <see cref="XFont"/> for the given size and weight, creating it on first use.   
+    private static XFont GetOrCreateFont(Dictionary<(int size, bool bold), XFont> cache, int size, bool bold)
+    {
+        var key = (size, bold);
+        if (!cache.TryGetValue(key, out var font))
+        {
+            font = new XFont(FontFamily, size, bold ? XFontStyle.Bold : XFontStyle.Regular);
+            cache[key] = font;
+        }
+        return font;
+    }
+   
+    /// Draws all tokens accumulated for the current line, then advances <paramref name="y"/>
+    /// by a line height proportional to the largest font on that line and clears the buffer.   
+    private static void FlushHtmlLine(
+        XGraphics gfx, double x,
+        List<(string text, XFont font, bool underline, double xOffset, int fontSize)> currentLine,
+        ref double lineX, ref double y)
+    {
+        if (currentLine.Count == 0) { y += 16; return; }
+
+        var maxSize = currentLine.Max(t => t.fontSize);
+        var lh = Math.Ceiling(maxSize * 1.5);
+        var baseline = y + maxSize;
+
+        foreach (var (text, font, underline, xOffset, _) in currentLine)
+        {
+            gfx.DrawString(text, font, XBrushes.Black, x + xOffset, baseline);
+            if (underline)
             {
-                consecutiveNewlines = 0;
-                sb.Append(ch);
+                var w = gfx.MeasureString(text, font).Width;
+                gfx.DrawLine(XPens.Black, x + xOffset, baseline + 2, x + xOffset + w, baseline + 2);
             }
         }
 
-        return sb.ToString().Trim();
+        currentLine.Clear();
+        lineX = 0;
+        y += lh;
+    }
+
+    /// Walks the HTML document and converts it to a flat list of <see cref="HtmlToken"/> items.
+    /// A <see langword="null"/> entry represents a line break.
+    /// Leading and trailing line breaks are stripped.    
+    private static List<HtmlToken?> ParseHtmlToTokens(string html)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        var tokens = new List<HtmlToken?>();
+        WalkHtmlNode(doc.DocumentNode, false, false, false, 11, tokens);
+
+        while (tokens.Count > 0 && tokens[0] is null) tokens.RemoveAt(0);
+        while (tokens.Count > 0 && tokens[^1] is null) tokens.RemoveAt(tokens.Count - 1);
+
+        return tokens;
+    }
+   
+    /// Recursively visits an <see cref="HtmlNode"/>, inheriting formatting flags down the tree
+    /// and appending word tokens (or <see langword="null"/> line-break sentinels) to <paramref name="tokens"/>.    
+    private static void WalkHtmlNode(HtmlNode node, bool bold, bool underline, bool italic, int fontSize, List<HtmlToken?> tokens)
+    {
+        if (node.NodeType == HtmlNodeType.Text)
+        {
+            var text = HtmlEntity.DeEntitize(node.InnerText)
+                .Replace("\r\n", " ").Replace("\r", " ").Replace("\n", " ");
+
+            foreach (var word in SplitIntoWordTokens(text))
+                tokens.Add(new HtmlToken(word, bold, underline, italic, fontSize));
+            return;
+        }
+
+        if (node.NodeType != HtmlNodeType.Element)
+        {
+            foreach (var child in node.ChildNodes)
+                WalkHtmlNode(child, bold, underline, italic, fontSize, tokens);
+            return;
+        }
+
+        var tag = node.Name.ToLowerInvariant();
+        bool b = bold || tag is "b" or "strong" or "h1" or "h2" or "h3";
+        bool u = underline || tag is "u";
+        bool it = italic || tag is "i" or "em";
+        int size = tag switch { "h1" => 18, "h2" => 15, "h3" => 13, _ => fontSize };
+
+        if (tag == "br") { tokens.Add(null); return; }
+
+        bool isBlock = tag is "p" or "div" or "h1" or "h2" or "h3";
+
+        // ensure a line break without adding a second, one if the last token was already a line break
+        if (isBlock && tokens.Count > 0 && tokens.Last() is not null)
+            tokens.Add(null);
+
+        foreach (var child in node.ChildNodes)
+            WalkHtmlNode(child, b, u, it, size, tokens);
+
+        if (isBlock && tokens.Count > 0 && tokens.Last() is not null)
+            tokens.Add(null);
+    }
+      
+    /// Splits a plain-text string into word tokens, preserving a trailing space on each word
+    /// so that tokens can be concatenated without losing inter-word spacing.    
+    private static IEnumerable<string> SplitIntoWordTokens(string text)
+    {
+        var parts = text.Split(' ');
+        for (int i = 0; i < parts.Length; i++)
+        {
+            var word = i < parts.Length - 1 ? parts[i] + " " : parts[i];
+            if (word.Length > 0)
+            {
+                yield return word;
+            }
+        }
     }
 }

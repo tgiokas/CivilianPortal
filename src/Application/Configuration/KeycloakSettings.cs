@@ -14,6 +14,7 @@ public class KeycloakSettings
     public string Authority { get; set; } = string.Empty;
     public string RedirectUri { get; set; } = string.Empty;
     public bool RequireHttpsMetadata { get; set; } = false;
+    public string FrontendRedirectUri { get; set; } = "http://localhost:5173";
 
     public static KeycloakSettings BindFromConfiguration(IConfiguration configuration)
     {
@@ -37,7 +38,10 @@ public class KeycloakSettings
                 ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_REDIRECTURI is not set."),
 
             RequireHttpsMetadata = bool.Parse(
-                configuration["KEYCLOAK_REQUIRE_HTTPS_METADATA"] ?? "false")
+                configuration["KEYCLOAK_REQUIRE_HTTPS_METADATA"] ?? "false"),
+
+            FrontendRedirectUri = configuration["FRONTEND_REDIRECTURI"]
+                ?? "http://localhost:5173"
         };
     }
 }

@@ -1,14 +1,15 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
+using Confluent.Kafka;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CitizenPortal.Application.Services;
 
@@ -19,6 +20,7 @@ public class ApplicationService : IApplicationService
     private const string ApplicationFormContentType = "application/pdf";
     private const string ApplicationFormKeyTemplate = "applications/{0}/generated/application-form.pdf";
     private const long MaxAttachmentBytes = 500L * 1024 * 1024; // 500 MB storage backend limit
+    private const int MaxPdfBodyText = 2000; // 2000 chars max for PDF body text (to avoid overflow)
 
     private readonly IApplicationRepository _applicationRepo;
     private readonly ICitizenUserRepository _citizenUserRepo;
@@ -62,6 +64,10 @@ public class ApplicationService : IApplicationService
         string externalSystemId,
         CancellationToken cancellationToken = default)
     {
+        var (isValid, errorCodes) = ValidateSubmitApplicationRequest(request);
+        if (!isValid)
+            return _errors.Fail<ApplicationSubmittedDto>(errorCodes);
+
         // 1. Verify citizen user exists
         var citizenUser = await _citizenUserRepo.GetByKeycloakUserIdReadOnlyAsync(request.UserId);
         if (citizenUser is null)
@@ -86,7 +92,8 @@ public class ApplicationService : IApplicationService
                 CitizenEmail = request.Email,
                 CitizenFirstName = citizenUser.FirstName,
                 CitizenLastName = citizenUser.LastName,
-                SubmittedAt = submittedAt
+                SubmittedAt = submittedAt,
+                AttachmentNumber = files is null ? "0" : files.Count.ToString()
             });
         }
         catch (Exception ex)
@@ -351,4 +358,17 @@ public class ApplicationService : IApplicationService
             Kind = d.Kind.ToString()
         }).ToList()
     };
+
+    private (bool IsValid, List<string> errorCodes) ValidateSubmitApplicationRequest(ApplicationCreateDto request)
+    {
+        bool isValid = true; List<string> errorCodes = [];
+
+        if (!string.IsNullOrWhiteSpace(request.Body) && request.Body.Length > MaxPdfBodyText)
+        {
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationBodyTooLong);
+            isValid = false;
+        }
+
+        return (isValid, errorCodes);
+    }
 }

@@ -10,6 +10,7 @@ public class ApplicationPdfData
     public string? CitizenFirstName { get; set; }
     public string? CitizenLastName { get; set; }    
     public DateTime SubmittedAt { get; set; }
+    public string AttachmentNumber { get; set; } = string.Empty;
 
     public string CitizenFullName =>
         string.Join(' ', new[] { CitizenFirstName, CitizenLastName }
