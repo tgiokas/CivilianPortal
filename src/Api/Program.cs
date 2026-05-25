@@ -1,7 +1,9 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using DotNetEnv;
+
 using Serilog;
 
 using CitizenPortal.Api.Middlewares;
@@ -10,9 +12,6 @@ using CitizenPortal.Application;
 using CitizenPortal.Application.Configuration;
 using CitizenPortal.Infrastructure;
 using CitizenPortal.Infrastructure.Database;
-
-Env.Load();
-Env.TraversePath().Load();
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -32,11 +31,19 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 
 // Bind KeycloakSettings early so we can use it for JWT config
 var keycloakSettings = KeycloakSettings.BindFromConfiguration(builder.Configuration);
+var portalsettings = PortalSettings.BindFromConfiguration(builder.Configuration);
 
 // Keycloak Role Mapper
 builder.Services.AddSingleton<KeycloakRoleMapper>();
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Serialize enums (e.g. ApplicationStatus) as their string names so the SPA can
+        // index lookup tables by `"Submitted" | "Registered" | ...` instead of numeric values.
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 
 // Configure Authentication (CitizenRealm) & Keycloak JWT Bearer
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -73,7 +80,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorsPolicy", policyBuilder =>
     {
-        policyBuilder.WithOrigins(keycloakSettings.FrontendRedirectUri.TrimEnd('/'))
+        policyBuilder.WithOrigins(portalsettings.CorsAllowedOrigins)
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -83,6 +90,15 @@ builder.Services.AddCors(options =>
 // Health checks
 builder.Services.AddHealthChecks();
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+        | ForwardedHeaders.XForwardedProto
+        | ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // Add Swagger in Development environment only
 if (builder.Environment.IsDevelopment())
 {
@@ -91,6 +107,8 @@ if (builder.Environment.IsDevelopment())
 }
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 // Expose a simple health endpoint at /health
 app.MapHealthChecks("/health");

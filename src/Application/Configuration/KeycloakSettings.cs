@@ -13,8 +13,7 @@ public class KeycloakSettings
     public string ClientSecret { get; set; } = string.Empty;
     public string Authority { get; set; } = string.Empty;
     public string RedirectUri { get; set; } = string.Empty;
-    public bool RequireHttpsMetadata { get; set; } = false;
-    public string FrontendRedirectUri { get; set; } = "http://localhost:5173";
+    public bool RequireHttpsMetadata { get; set; } = false;   
 
     public static KeycloakSettings BindFromConfiguration(IConfiguration configuration)
     {
@@ -23,25 +22,22 @@ public class KeycloakSettings
             BaseUrl = configuration["KEYCLOAK_BASEURL"]
                 ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_BASEURL is not set."),
 
-            Realm = configuration["KEYCLOAK_REALM"]
-                ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_REALM is not set."),
+            Realm = configuration["KEYCLOAK_PORTAL_REALM"]
+                ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_PORTAL_REALM is not set."),
 
-            ClientId = configuration["KEYCLOAK_CLIENTID"]
-                ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_CLIENTID is not set."),
+            ClientId = configuration["KEYCLOAK_PORTAL_CLIENTID"]
+                ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_PORTAL_CLIENTID is not set."),
 
-            ClientSecret = configuration["KEYCLOAK_CLIENTSECRET"] ?? string.Empty,
+            ClientSecret = configuration["KEYCLOAK_PORTAL_CLIENTSECRET"] ?? string.Empty,
 
-            Authority = configuration["KEYCLOAK_AUTHORITY"]
-                ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_AUTHORITY is not set."),
+            Authority = configuration["KEYCLOAK_PORTAL_AUTHORITY"]
+                ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_PORTAL_AUTHORITY is not set."),
 
-            RedirectUri = configuration["KEYCLOAK_REDIRECTURI"]
-                ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_REDIRECTURI is not set."),
+            RedirectUri = configuration["KEYCLOAK_PORTAL_REDIRECTURI"]
+                ?? throw new ArgumentNullException(nameof(configuration), "KEYCLOAK_PORTAL_REDIRECTURI is not set."),
 
             RequireHttpsMetadata = bool.Parse(
-                configuration["KEYCLOAK_REQUIRE_HTTPS_METADATA"] ?? "false"),
-
-            FrontendRedirectUri = configuration["FRONTEND_REDIRECTURI"]
-                ?? "http://localhost:5173"
+                configuration["KEYCLOAK_REQUIRE_HTTPS_METADATA"] ?? "false"),            
         };
     }
 }

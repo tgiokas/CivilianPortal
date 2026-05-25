@@ -101,6 +101,7 @@ public class AuthenticationService : IAuthenticationService
         var firstName = jwtToken.Claims.FirstOrDefault(c => c.Type == "given_name")?.Value;
         var lastName = jwtToken.Claims.FirstOrDefault(c => c.Type == "family_name")?.Value;
         var taxisNetId = jwtToken.Claims.FirstOrDefault(c => c.Type == "taxid" || c.Type == "afm")?.Value;
+        var fatherName = jwtToken.Claims.FirstOrDefault(c => c.Type == "fathername")?.Value;
 
         if (string.IsNullOrWhiteSpace(keycloakUserId) || string.IsNullOrWhiteSpace(email))
         {
@@ -112,6 +113,12 @@ public class AuthenticationService : IAuthenticationService
         {
             _logger.LogError("Invalid Keycloak user ID format: {Id}", keycloakUserId);
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
+        }
+
+        bool legalEntity = false;
+        if (string.IsNullOrWhiteSpace(firstName) || firstName == "null")
+        {
+            legalEntity = true;
         }
 
         // 3. Check if citizen exists in Citizen-portal DB
@@ -128,7 +135,9 @@ public class AuthenticationService : IAuthenticationService
                 Email = email,
                 FirstName = firstName,
                 LastName = lastName,
-                TaxisNetId = taxisNetId
+                FatherName = fatherName,
+                VatId = taxisNetId,
+                LegalEntity = legalEntity
             };
 
             var (provisioned, created) = await _citizenUserRepo.GetOrCreateAsync(candidate);
@@ -153,9 +162,14 @@ public class AuthenticationService : IAuthenticationService
                 dbCitizen.LastName = lastName;
                 updated = true;
             }
-            if (!string.IsNullOrWhiteSpace(taxisNetId) && dbCitizen.TaxisNetId != taxisNetId)
+            if (!string.IsNullOrWhiteSpace(taxisNetId) && dbCitizen.VatId != taxisNetId)
             {
-                dbCitizen.TaxisNetId = taxisNetId;
+                dbCitizen.VatId = taxisNetId;
+                updated = true;
+            }
+            if (!string.IsNullOrWhiteSpace(fatherName) && dbCitizen.FatherName != fatherName)
+            {
+                dbCitizen.FatherName = fatherName;
                 updated = true;
             }
 
@@ -178,7 +192,9 @@ public class AuthenticationService : IAuthenticationService
                 KeycloakUserId = dbCitizen.KeycloakUserId,
                 Email = dbCitizen.Email,
                 FirstName = dbCitizen.FirstName,
-                LastName = dbCitizen.LastName
+                LastName = dbCitizen.LastName,
+                FatherName = dbCitizen.FatherName,
+                VatId = dbCitizen.VatId
             }
         });
     }

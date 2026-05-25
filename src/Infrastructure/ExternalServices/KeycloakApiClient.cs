@@ -23,8 +23,8 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private string tokenEndpoint => $"/realms/{_realm}/protocol/openid-connect/token";
-    private string logoutEndpoint => $"/realms/{_realm}/protocol/openid-connect/logout";
+    private string tokenEndpoint => $"realms/{_realm}/protocol/openid-connect/token";
+    private string logoutEndpoint => $"realms/{_realm}/protocol/openid-connect/logout";
 
     public KeycloakApiClient(HttpClient httpClient, IOptions<KeycloakSettings> keycloakOptions, ILogger<KeycloakApiClient> logger)
         : base(httpClient, logger)
@@ -116,7 +116,7 @@ public class KeycloakApiClient : ApiClientBase, IKeycloakApiClient
         return JsonSerializer.Deserialize<TokenDto>(json, JsonOptions);
     }
 
-    /// Logout — revokes the refresh token in Keycloak.
+    /// Logout - revokes the refresh token in Keycloak.
     public async Task<bool> LogoutAsync(string refreshToken)
     {
         var parameters = new Dictionary<string, string>

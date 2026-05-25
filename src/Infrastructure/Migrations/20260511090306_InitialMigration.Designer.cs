@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CitizenPortal.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260504072235_InitialMigration")]
+    [Migration("20260511090306_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -171,6 +171,10 @@ namespace CitizenPortal.Infrastructure.Migrations
                         .HasColumnType("character varying(320)")
                         .HasColumnName("email");
 
+                    b.Property<string>("FatherName")
+                        .HasColumnType("text")
+                        .HasColumnName("father_name");
+
                     b.Property<string>("FirstName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -185,14 +189,18 @@ namespace CitizenPortal.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("last_name");
 
+                    b.Property<bool>("LegalEntity")
+                        .HasColumnType("boolean")
+                        .HasColumnName("legal_entity");
+
                     b.Property<DateTime?>("ModifiedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("modified_at");
 
-                    b.Property<string>("TaxisNetId")
+                    b.Property<string>("VatId")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
-                        .HasColumnName("taxis_net_id");
+                        .HasColumnName("vat_id");
 
                     b.HasKey("Id")
                         .HasName("pk_citizen_users");

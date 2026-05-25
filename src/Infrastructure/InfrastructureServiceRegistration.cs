@@ -71,12 +71,14 @@ public static class InfrastructureServiceRegistration
 
         // === HTTP Clients ===
         // Both now consistent — BaseAddress set at DI level
+        // Trailing slash is required so relative endpoints (e.g. "realms/.../token") resolve under
+        // the configured path prefix (e.g. "/auth") instead of replacing it.
+        var keycloakBaseUrl = keycloakSettings.BaseUrl.EndsWith('/')
+            ? keycloakSettings.BaseUrl
+            : keycloakSettings.BaseUrl + "/";
         services.AddHttpClient<IKeycloakApiClient, KeycloakApiClient>(client =>
         {
-            client.BaseAddress = new Uri(keycloakSettings.BaseUrl);
-        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            client.BaseAddress = new Uri(keycloakBaseUrl);
         });
 
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>

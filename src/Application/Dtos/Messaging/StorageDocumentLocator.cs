@@ -8,4 +8,5 @@ public class StorageDocumentLocator
     public string Bucket { get; set; } = string.Empty;
     public string Key { get; set; } = string.Empty;
     public ApplicationDocumentKind Kind { get; set; } = ApplicationDocumentKind.Attachment;
+    public string ContentType { get; set; } = string.Empty;
 }

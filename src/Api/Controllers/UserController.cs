@@ -15,11 +15,11 @@ public class UserController : ControllerBase
         _userService = userService;
     }
 
-    /// Get the profile of a citizen user by their Keycloak user ID.
-    [HttpGet("profile")]
-    public async Task<IActionResult> GetProfile([FromQuery] Guid keycloakUserId)
+    /// Get the profile of a citizen user by their user ID.
+    [HttpGet("get")]
+    public async Task<IActionResult> GetProfile([FromQuery] Guid userId)
     {
-        var result = await _userService.GetUserProfileAsync(keycloakUserId);
+        var result = await _userService.GetUserProfileAsync(userId);
 
         if (!result.Success)
             return Accepted(result);

@@ -22,7 +22,9 @@ namespace CitizenPortal.Infrastructure.Migrations
                     email = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: false),
                     first_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     last_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    taxis_net_id = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    father_name = table.Column<string>(type: "text", nullable: true),
+                    vat_id = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    legal_entity = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     modified_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },

@@ -8,6 +8,7 @@ public class ApplicationSubmittedEvent
     public string Email { get; set; } = string.Empty;
     public string Firstname { get; set; } = string.Empty;
     public string Lastname { get; set; } = string.Empty;
+    public string VatId { get; set; } = string.Empty;
     public List<StorageDocumentLocator> Documents { get; set; } = [];
     public DateTime SubmittedAt { get; set; }
 }

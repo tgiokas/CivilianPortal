@@ -79,8 +79,7 @@ public class ApplicationService : IApplicationService
         var applicationPublicId = Guid.NewGuid();
         var submittedAt = DateTime.UtcNow;
 
-        // 2. Generate the application form PDF (CitizenPortal is now the source
-        //    of truth for this document; DMS no longer generates it).
+        // 2. Generate the application form PDF 
         byte[] pdfBytes;
         try
         {
@@ -219,11 +218,15 @@ public class ApplicationService : IApplicationService
                 ExternalSystemId = externalSystemId,
                 Subject = application.Subject,
                 Email = application.Email,
+                Lastname = citizenUser.LastName ?? string.Empty,
+                Firstname = citizenUser.FirstName ?? string.Empty,
+                VatId = citizenUser.VatId ?? string.Empty,
                 Documents = uploadedDocs.Select(d => new StorageDocumentLocator
                 {
                     Bucket = d.StorageBucket,
                     Key = d.StorageKey,
-                    Kind = d.Kind
+                    Kind = d.Kind,
+                    ContentType = d.ContentType
                 }).ToList(),
                 SubmittedAt = application.CreatedAt
             };
@@ -302,7 +305,7 @@ public class ApplicationService : IApplicationService
 
         var newStatus = Enum.TryParse<ApplicationStatus>(protocolEvent.Status, true, out var parsed)
             ? parsed
-            : ApplicationStatus.Registered;
+            : ApplicationStatus.Delivered;
 
         var updated = await _applicationRepo.UpdateStatusAsync(
             application.Id, newStatus, protocolEvent.ProtocolNumber);
@@ -348,6 +351,7 @@ public class ApplicationService : IApplicationService
         Status = app.Status.ToString(),
         ProtocolNumber = app.ProtocolNumber,
         CreatedAt = app.CreatedAt,
+        ModifiedAt = app.ModifiedAt,
         Documents = app.Documents.Select(d => new ApplicationDocumentDto
         {
             StorageBucket = d.StorageBucket,

@@ -29,8 +29,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(u => u.Email).IsRequired().HasMaxLength(320);
             entity.Property(u => u.FirstName).HasMaxLength(200);
             entity.Property(u => u.LastName).HasMaxLength(200);
-            entity.Property(u => u.TaxisNetId).HasMaxLength(50);           
-            
+            entity.Property(u => u.VatId).HasMaxLength(50);            
             entity.HasIndex(u => u.KeycloakUserId).IsUnique();
             entity.HasIndex(u => u.Email);
         });
