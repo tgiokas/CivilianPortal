@@ -23,6 +23,14 @@ public class ProtocolAssignedConsumer : BackgroundService
     private readonly ILogger<ProtocolAssignedConsumer> _logger;
     private readonly string _topic;
 
+    private const int MaxDeliveryAttempts = 5;
+    private static readonly TimeSpan RetryBackoff = TimeSpan.FromSeconds(1);
+
+    // Tracks consecutive retry attempts for a single offset so a persistently
+    // failing message is skipped instead of blocking the partition forever.
+    private TopicPartitionOffset? _retryOffset;
+    private int _retryAttempts;
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true
@@ -91,59 +99,66 @@ public class ProtocolAssignedConsumer : BackgroundService
                     result = _consumer.Consume(TimeSpan.FromSeconds(5));
                     if (result == null) continue;
 
-                    _logger.LogInformation("Message from topic {Topic} consumed", result.Topic);                  
+                    _logger.LogInformation("Message from topic {Topic} consumed", result.Topic);
+
+                    if (string.IsNullOrWhiteSpace(result.Message.Value))
+                    {
+                        // Tombstone / empty value — nothing to process, skip it.
+                        _logger.LogWarning("Received empty message at {TPO}; committing to skip.",
+                            result.TopicPartitionOffset);
+                        CommitAndReset(result);
+                        continue;
+                    }
 
                     var payload = ParsePayload(result.Message.Value);
 
-                    if (payload is not null)
-                    {
-                        using var scope = _scopeFactory.CreateScope();
-                        var appService = scope.ServiceProvider.GetRequiredService<IApplicationService>();
-
-                        var updateResult = await appService.UpdateStatusFromDmsAsync(payload);
-
-                        if (!updateResult.Success)
-                        {
-                            if (updateResult.ErrorCode == ErrorCodes.PORTAL.ApplicationNotFound)
-                            {
-                                // Application unknown or protocol already assigned (idempotency guard).
-                                // Retrying will not help — log and fall through to commit.
-                                _logger.LogWarning(
-                                    "Protocol assignment for {PublicId} skipped (ErrorCode={ErrorCode}): {Message}. Committing offset.",
-                                    payload.ApplicationPublicId, updateResult.ErrorCode, updateResult.Message);
-                            }
-                            else
-                            {
-                                // Transient or unexpected failure — throw so the outer catch handler
-                                // backs off 1 s and retries without committing the offset.
-                                throw new InvalidOperationException(
-                                    $"UpdateStatusFromDmsAsync failed for {payload.ApplicationPublicId}: " +
-                                    $"{updateResult.ErrorCode} – {updateResult.Message}");
-                            }
-                        }
-                    }
-                    else
+                    if (payload is null)
                     {
                         _logger.LogWarning(
                             "Received unparseable message at {TPO}; committing to skip.",
                             result.TopicPartitionOffset);
+                        CommitAndReset(result);
+                        continue;
                     }
 
-                    _consumer.Commit(result);
+                    using var scope = _scopeFactory.CreateScope();
+                    var appService = scope.ServiceProvider.GetRequiredService<IApplicationService>();
 
-                    _logger.LogInformation("Offset committed at {TPO}", result.TopicPartitionOffset);
+                    var updateResult = await appService.UpdateStatusFromDmsAsync(payload);
+
+                    if (!updateResult.Success && updateResult.ErrorCode != ErrorCodes.PORTAL.ApplicationNotFound)
+                    {
+                        // Transient or unexpected failure — re-read the same message and retry.
+                        await HandleRetryableFailureAsync(
+                            result,
+                            $"UpdateStatusFromDmsAsync failed for {payload.ApplicationPublicId}: " +
+                            $"{updateResult.ErrorCode} – {updateResult.Message}",
+                            stoppingToken);
+                        continue;
+                    }
+
+                    if (!updateResult.Success)
+                    {
+                        // Application unknown or protocol already assigned (idempotency guard).
+                        // Retrying will not help — log and commit.
+                        _logger.LogWarning(
+                            "Protocol assignment for {PublicId} skipped (ErrorCode={ErrorCode}): {Message}. Committing offset.",
+                            payload.ApplicationPublicId, updateResult.ErrorCode, updateResult.Message);
+                    }
+
+                    CommitAndReset(result);
                 }
                 catch (ConsumeException ex)
                 {
                     _logger.LogError(ex, "ConsumeException at {TPO}: {Reason}",
                         result?.TopicPartitionOffset, ex.Error.Reason);
-                    await Task.Delay(1000, stoppingToken);
+                    await Task.Delay(RetryBackoff, stoppingToken);
                 }
                 catch (JsonException ex)
                 {
                     _logger.LogWarning(ex, "JSON error at {TPO}; committing to skip poison message.",
                         result?.TopicPartitionOffset);
-                    if (result is not null) _consumer.Commit(result);
+                    if (result is not null) CommitAndReset(result);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -151,9 +166,15 @@ public class ProtocolAssignedConsumer : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Unhandled processing error at {TPO}. Backing off briefly.",
-                        result?.TopicPartitionOffset);
-                    await Task.Delay(1000, stoppingToken);
+                    if (result is null)
+                    {
+                        _logger.LogError(ex, "Unhandled processing error with no message. Backing off briefly.");
+                        await Task.Delay(RetryBackoff, stoppingToken);
+                    }
+                    else
+                    {
+                        await HandleRetryableFailureAsync(result, ex.Message, stoppingToken);
+                    }
                 }
             }
         }
@@ -163,6 +184,48 @@ public class ProtocolAssignedConsumer : BackgroundService
             catch (Exception ex) { _logger.LogWarning(ex, "Error closing Kafka consumer."); }
         }
 
+    }
+
+    /// Re-reads the same message on the next poll (via Seek) and backs off, so a
+    /// transient failure is actually retried in order. After MaxDeliveryAttempts
+    /// the message is skipped (committed) with an error log to avoid blocking the
+    /// partition on a persistently failing message.
+    private async Task HandleRetryableFailureAsync(
+        ConsumeResult<string, string> result, string reason, CancellationToken ct)
+    {
+        if (_retryOffset is not null && _retryOffset == result.TopicPartitionOffset)
+            _retryAttempts++;
+        else
+        {
+            _retryOffset = result.TopicPartitionOffset;
+            _retryAttempts = 1;
+        }
+
+        if (_retryAttempts >= MaxDeliveryAttempts)
+        {
+            _logger.LogError(
+                "Giving up on {TPO} after {Attempts} attempts: {Reason}. Committing to skip.",
+                result.TopicPartitionOffset, _retryAttempts, reason);
+            CommitAndReset(result);
+            return;
+        }
+
+        _logger.LogWarning(
+            "Retryable failure at {TPO} (attempt {Attempt}/{Max}): {Reason}. Seeking back and backing off.",
+            result.TopicPartitionOffset, _retryAttempts, MaxDeliveryAttempts, reason);
+
+        try { _consumer.Seek(result.TopicPartitionOffset); }
+        catch (Exception ex) { _logger.LogWarning(ex, "Seek failed; will resume from last committed offset."); }
+
+        await Task.Delay(RetryBackoff, ct);
+    }
+
+    private void CommitAndReset(ConsumeResult<string, string> result)
+    {
+        _consumer.Commit(result);
+        _retryOffset = null;
+        _retryAttempts = 0;
+        _logger.LogInformation("Offset committed at {TPO}", result.TopicPartitionOffset);
     }
 
     private static ProtocolAssignedEvent? ParsePayload(string payload)

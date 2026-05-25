@@ -18,6 +18,14 @@
     { "code": "PORTAL-015", "message": "Authentication failed." },
     { "code": "PORTAL-016", "message": "Token refresh failed." },
     { "code": "PORTAL-017", "message": "Logout failed." },
-    { "code": "PORTAL-018", "message": "Failed to generate application PDF." }
+    { "code": "PORTAL-018", "message": "Failed to generate application PDF." },
+    { "code": "PORTAL-019", "message": "Application body is too long." },
+    { "code": "PORTAL-020", "message": "Application subject is required." },
+    { "code": "PORTAL-021", "message": "Application subject is too long." },
+    { "code": "PORTAL-022", "message": "Contact email is required." },
+    { "code": "PORTAL-023", "message": "Contact email is invalid." },
+    { "code": "PORTAL-024", "message": "Application body is required." },
+    { "code": "PORTAL-025", "message": "Too many attachments." },
+    { "code": "PORTAL-026", "message": "Total attachment size exceeds the allowed limit." }
   ]
 }

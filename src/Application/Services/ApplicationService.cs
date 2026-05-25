@@ -7,6 +7,7 @@ using CitizenPortal.Domain.Interfaces;
 using Confluent.Kafka;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -20,7 +21,17 @@ public class ApplicationService : IApplicationService
     private const string ApplicationFormContentType = "application/pdf";
     private const string ApplicationFormKeyTemplate = "applications/{0}/generated/application-form.pdf";
     private const long MaxAttachmentBytes = 500L * 1024 * 1024; // 500 MB storage backend limit
+    private const long MaxTotalAttachmentBytes = 1L * 1024 * 1024 * 1024; // 1 GB aggregate cap per submission
     private const int MaxPdfBodyText = 2000; // 2000 chars max for PDF body text (to avoid overflow)
+    private const int MaxSubjectLength = 500; // matches Applications.Subject column
+    private const int MaxEmailLength = 320;   // matches Applications.Email column
+    private const int MaxAttachmentCount = 10;
+
+    private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff",
+        ".doc", ".docx", ".xls", ".xlsx", ".txt"
+    };
 
     private readonly IApplicationRepository _applicationRepo;
     private readonly ICitizenUserRepository _citizenUserRepo;
@@ -64,7 +75,7 @@ public class ApplicationService : IApplicationService
         string externalSystemId,
         CancellationToken cancellationToken = default)
     {
-        var (isValid, errorCodes) = ValidateSubmitApplicationRequest(request);
+        var (isValid, errorCodes) = ValidateSubmitApplicationRequest(request, files);
         if (!isValid)
             return _errors.Fail<ApplicationSubmittedDto>(errorCodes);
 
@@ -151,15 +162,6 @@ public class ApplicationService : IApplicationService
         {
             foreach (var file in files)
             {
-                if (file.Length > MaxAttachmentBytes)
-                {
-                    _logger.LogWarning(
-                        "Attachment {FileName} rejected: size {Size} bytes exceeds the {Limit} MB limit.",
-                        file.FileName, file.Length, MaxAttachmentBytes / 1024 / 1024);
-                    await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
-                    return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.FileTooLarge);
-                }
-
                 var storageKey = $"applications/{applicationPublicId}/attachments/{Guid.NewGuid():N}-{file.FileName}";
 
                 try
@@ -359,16 +361,49 @@ public class ApplicationService : IApplicationService
         }).ToList()
     };
 
-    private (bool IsValid, List<string> errorCodes) ValidateSubmitApplicationRequest(ApplicationCreateDto request)
+    private (bool IsValid, List<string> errorCodes) ValidateSubmitApplicationRequest(
+        ApplicationCreateDto request, List<IFormFile>? files)
     {
-        bool isValid = true; List<string> errorCodes = [];
+        List<string> errorCodes = [];
 
-        if (!string.IsNullOrWhiteSpace(request.Body) && request.Body.Length > MaxPdfBodyText)
-        {
+        if (request.UserId == Guid.Empty)
+            errorCodes.Add(ErrorCodes.PORTAL.InvalidApplicationData);
+
+        // Subject
+        if (string.IsNullOrWhiteSpace(request.Subject))
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationSubjectRequired);
+        else if (request.Subject.Length > MaxSubjectLength)
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationSubjectTooLong);
+
+        // Email
+        if (string.IsNullOrWhiteSpace(request.Email))
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationEmailRequired);
+        else if (request.Email.Length > MaxEmailLength
+                 || !new EmailAddressAttribute().IsValid(request.Email))
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationEmailInvalid);
+
+        // Body
+        if (string.IsNullOrWhiteSpace(request.Body))
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationBodyRequired);
+        else if (request.Body.Length > MaxPdfBodyText)
             errorCodes.Add(ErrorCodes.PORTAL.ApplicationBodyTooLong);
-            isValid = false;
+
+        // Attachments
+        if (files is not null && files.Count > 0)
+        {
+            if (files.Count > MaxAttachmentCount)
+                errorCodes.Add(ErrorCodes.PORTAL.TooManyAttachments);
+
+            if (files.Any(f => !AllowedAttachmentExtensions.Contains(Path.GetExtension(f.FileName))))
+                errorCodes.Add(ErrorCodes.PORTAL.InvalidFileType);
+
+            if (files.Any(f => f.Length > MaxAttachmentBytes))
+                errorCodes.Add(ErrorCodes.PORTAL.FileTooLarge);
+
+            if (files.Sum(f => f.Length) > MaxTotalAttachmentBytes)
+                errorCodes.Add(ErrorCodes.PORTAL.TotalAttachmentSizeExceeded);
         }
 
-        return (isValid, errorCodes);
+        return (errorCodes.Count == 0, errorCodes);
     }
 }
