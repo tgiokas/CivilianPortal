@@ -64,6 +64,7 @@ public static class InfrastructureServiceRegistration
 
         // === Kafka ===
         services.AddSingleton<IMessagePublisher, KafkaPublisher>();
+        services.AddSingleton<IEmailSender, KafkaEmailSender>();
 
         // === Background Services ===
         services.AddHostedService<OutboxProcessor>();           // Publishes outbox → Kafka
@@ -79,6 +80,9 @@ public static class InfrastructureServiceRegistration
         services.AddHttpClient<IKeycloakApiClient, KeycloakApiClient>(client =>
         {
             client.BaseAddress = new Uri(keycloakBaseUrl);
+        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>

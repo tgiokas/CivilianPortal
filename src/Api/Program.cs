@@ -13,15 +13,16 @@ using CitizenPortal.Application.Configuration;
 using CitizenPortal.Infrastructure;
 using CitizenPortal.Infrastructure.Database;
 
-Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .CreateBootstrapLogger();
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Configure Serilog
-builder.Host.UseSerilog((context, services, configuration) =>
-    configuration.ReadFrom.Configuration(context.Configuration));
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .CreateLogger();
+Log.Information("Configuration is starting...");
+
+builder.Host.UseSerilog();
 
 // Add Application services
 builder.Services.AddApplicationServices();

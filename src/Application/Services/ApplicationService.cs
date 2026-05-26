@@ -1,15 +1,17 @@
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+
+using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
-using Confluent.Kafka;
-using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
-using System.Linq;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace CitizenPortal.Application.Services;
 
@@ -20,14 +22,24 @@ public class ApplicationService : IApplicationService
     private const string ApplicationFormContentType = "application/pdf";
     private const string ApplicationFormKeyTemplate = "applications/{0}/generated/application-form.pdf";
     private const long MaxAttachmentBytes = 500L * 1024 * 1024; // 500 MB storage backend limit
+    private const long MaxTotalAttachmentBytes = 1L * 1024 * 1024 * 1024; // 1 GB aggregate cap per submission
     private const int MaxPdfBodyText = 2000; // 2000 chars max for PDF body text (to avoid overflow)
-
+    private const int MaxSubjectLength = 500; // matches Applications.Subject column
+    private const int MaxEmailLength = 320;   // matches Applications.Email column
+    private const int MaxAttachmentCount = 10;    
+    private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff",
+        ".doc", ".docx", ".xls", ".xlsx", ".txt"
+    };
     private readonly IApplicationRepository _applicationRepo;
     private readonly ICitizenUserRepository _citizenUserRepo;
     private readonly IOutboxRepository _outboxRepo;
     private readonly IStorageApiClient _storageClient;
     private readonly IApplicationPdfGenerator _pdfGenerator;
     private readonly IApplicationDbContext _dbContext;
+    private readonly IEmailSender _emailSender;
+    private readonly KafkaSettings _kafkaSettings;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<ApplicationService> _logger;
 
@@ -45,6 +57,8 @@ public class ApplicationService : IApplicationService
         IStorageApiClient storageClient,
         IApplicationPdfGenerator pdfGenerator,
         IApplicationDbContext dbContext,
+        IEmailSender emailSender,
+        IOptions<KafkaSettings> kafkaOptions,
         IErrorCatalog errors,
         ILogger<ApplicationService> logger)
     {
@@ -54,6 +68,8 @@ public class ApplicationService : IApplicationService
         _storageClient = storageClient;
         _pdfGenerator = pdfGenerator;
         _dbContext = dbContext;
+        _emailSender = emailSender;
+        _kafkaSettings = kafkaOptions.Value;
         _errors = errors;
         _logger = logger;
     }
@@ -64,7 +80,7 @@ public class ApplicationService : IApplicationService
         string externalSystemId,
         CancellationToken cancellationToken = default)
     {
-        var (isValid, errorCodes) = ValidateSubmitApplicationRequest(request);
+        var (isValid, errorCodes) = ValidateSubmitApplicationRequest(request, files);
         if (!isValid)
             return _errors.Fail<ApplicationSubmittedDto>(errorCodes);
 
@@ -195,6 +211,7 @@ public class ApplicationService : IApplicationService
         }
 
         // 4. Single DB transaction: save Application + Documents + OutboxMessage
+        // 5. Send email after commit, since it's not critical to be in the same transaction and we don't want to delay the commit with email service calls.
         using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
         try
         {
@@ -247,6 +264,17 @@ public class ApplicationService : IApplicationService
                 "Application {PublicId} submitted by citizen {CitizenUserId}: " +
                 "1 application form + {AttachmentCount} attachment(s). Outbox message created.",
                 application.PublicId, request.UserId, uploadedDocs.Count - 1);
+
+            /// Send email
+            await _emailSender.SendEmailAsync(new NotificationEmailDto
+            {
+                Recipient = application.Email,
+                Subject = "Επιβεβαίωση Παραλαβής Αιτήματος",
+                Message = $"Σας γνωρίζουμε ότι η αίτησή σας υπεβλήθη με επιτυχία." +
+                    $"<br>Ακολουθεί αντίγραφο της αίτησής σας: " +
+                    $"<br>{application.Body}" +
+                    $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
+            }, _kafkaSettings.EmailTopic, cancellationToken);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
@@ -323,6 +351,15 @@ public class ApplicationService : IApplicationService
             "Application {PublicId} updated: status={Status}, protocol={ProtocolNumber}.",
             protocolEvent.ApplicationPublicId, newStatus, protocolEvent.ProtocolNumber);
 
+        await _emailSender.SendEmailAsync(new NotificationEmailDto
+        {
+            Recipient = application.Email,
+            Subject = "Επιβεβαίωση Πρωτοκόλλησης Αιτήματος",
+            Message = $"Σας γνωρίζουμε ότι η αίτησή σας, που υπεβλήθη στις {{{application.CreatedAt}}}, " +
+                $"<br>έλαβε τον Αριθμό Πρωτοκόλλου {{{protocolEvent.ProtocolNumber}}}. " +
+                $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
+        }, _kafkaSettings.EmailTopic);
+
         return Result<bool>.Ok(true, "Status updated");
     }
 
@@ -363,16 +400,49 @@ public class ApplicationService : IApplicationService
         }).ToList()
     };
 
-    private (bool IsValid, List<string> errorCodes) ValidateSubmitApplicationRequest(ApplicationCreateDto request)
+    private (bool IsValid, List<string> errorCodes) ValidateSubmitApplicationRequest(
+       ApplicationCreateDto request, List<IFormFile>? files)
     {
-        bool isValid = true; List<string> errorCodes = [];
+        List<string> errorCodes = [];
 
-        if (!string.IsNullOrWhiteSpace(request.Body) && request.Body.Length > MaxPdfBodyText)
-        {
+        if (request.UserId == Guid.Empty)
+            errorCodes.Add(ErrorCodes.PORTAL.InvalidApplicationData);
+
+        // Subject
+        if (string.IsNullOrWhiteSpace(request.Subject))
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationSubjectRequired);
+        else if (request.Subject.Length > MaxSubjectLength)
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationSubjectTooLong);
+
+        // Email
+        if (string.IsNullOrWhiteSpace(request.Email))
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationEmailRequired);
+        else if (request.Email.Length > MaxEmailLength
+                 || !new EmailAddressAttribute().IsValid(request.Email))
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationEmailInvalid);
+
+        // Body
+        if (string.IsNullOrWhiteSpace(request.Body))
+            errorCodes.Add(ErrorCodes.PORTAL.ApplicationBodyRequired);
+        else if (request.Body.Length > MaxPdfBodyText)
             errorCodes.Add(ErrorCodes.PORTAL.ApplicationBodyTooLong);
-            isValid = false;
+
+        // Attachments
+        if (files is not null && files.Count > 0)
+        {
+            if (files.Count > MaxAttachmentCount)
+                errorCodes.Add(ErrorCodes.PORTAL.TooManyAttachments);
+
+            if (files.Any(f => !AllowedAttachmentExtensions.Contains(Path.GetExtension(f.FileName))))
+                errorCodes.Add(ErrorCodes.PORTAL.InvalidFileType);
+
+            if (files.Any(f => f.Length > MaxAttachmentBytes))
+                errorCodes.Add(ErrorCodes.PORTAL.FileTooLarge);
+
+            if (files.Sum(f => f.Length) > MaxTotalAttachmentBytes)
+                errorCodes.Add(ErrorCodes.PORTAL.TotalAttachmentSizeExceeded);
         }
 
-        return (isValid, errorCodes);
+        return (errorCodes.Count == 0, errorCodes);
     }
 }

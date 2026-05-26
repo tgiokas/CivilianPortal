@@ -24,5 +24,12 @@ public static class ErrorCodes
         public const string LogoutFailed = "PORTAL-017";
         public const string PdfGenerationFailed = "PORTAL-018";
         public const string ApplicationBodyTooLong = "PORTAL-019";
+        public const string ApplicationSubjectRequired = "PORTAL-020";
+        public const string ApplicationSubjectTooLong = "PORTAL-021";
+        public const string ApplicationEmailRequired = "PORTAL-022";
+        public const string ApplicationEmailInvalid = "PORTAL-023";
+        public const string ApplicationBodyRequired = "PORTAL-024";
+        public const string TooManyAttachments = "PORTAL-025";
+        public const string TotalAttachmentSizeExceeded = "PORTAL-026";
     }
 }
