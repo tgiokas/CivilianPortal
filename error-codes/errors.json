@@ -19,6 +19,7 @@
     { "code": "PORTAL-016", "message": "Token refresh failed." },
     { "code": "PORTAL-017", "message": "Logout failed." },
     { "code": "PORTAL-018", "message": "Failed to generate application PDF." },
-	  { "code": "PORTAL-019", "message": "The body text exceeds the maximum allowed length." }
+	  { "code": "PORTAL-019", "message": "The body text exceeds the maximum allowed length." },
+    { "code": "PORTAL-027", "message": "Application has already been protocoled." }
   ]
 }

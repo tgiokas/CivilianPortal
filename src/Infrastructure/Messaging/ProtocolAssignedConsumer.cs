@@ -18,10 +18,16 @@ namespace CitizenPortal.Infrastructure.Messaging;
 /// the protocol topic. This consumer picks it up and updates the CitizenPortal DB.
 public class ProtocolAssignedConsumer : BackgroundService
 {
+    private const int MaxProcessingAttempts = 5;
+
     private readonly IConsumer<string, string> _consumer;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ProtocolAssignedConsumer> _logger;
     private readonly string _topic;
+
+    // Per-offset failure counter. The consume loop runs single-threaded so a
+    // plain Dictionary is safe. Entries are pruned when an offset is committed.
+    private readonly Dictionary<TopicPartitionOffset, int> _failureAttempts = new();
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -104,10 +110,17 @@ public class ProtocolAssignedConsumer : BackgroundService
 
                         if (!updateResult.Success)
                         {
-                            if (updateResult.ErrorCode == ErrorCodes.PORTAL.ApplicationNotFound)
+                            if (updateResult.ErrorCode == ErrorCodes.PORTAL.ApplicationAlreadyProtocoled)
                             {
-                                // Application unknown or protocol already assigned (idempotency guard).
-                                // Retrying will not help — log and fall through to commit.
+                                // Normal idempotency outcome (duplicate delivery from Kafka or a
+                                // DMS-side retry). Commit and move on.
+                                _logger.LogInformation(
+                                    "Protocol assignment for {PublicId} already applied (ErrorCode={ErrorCode}). Committing offset.",
+                                    payload.ApplicationPublicId, updateResult.ErrorCode);
+                            }
+                            else if (updateResult.ErrorCode == ErrorCodes.PORTAL.ApplicationNotFound)
+                            {
+                                // Application unknown. Retrying will not help — log and commit.
                                 _logger.LogWarning(
                                     "Protocol assignment for {PublicId} skipped (ErrorCode={ErrorCode}): {Message}. Committing offset.",
                                     payload.ApplicationPublicId, updateResult.ErrorCode, updateResult.Message);
@@ -130,6 +143,7 @@ public class ProtocolAssignedConsumer : BackgroundService
                     }
 
                     _consumer.Commit(result);
+                    _failureAttempts.Remove(result.TopicPartitionOffset);
 
                     _logger.LogInformation("Offset committed at {TPO}", result.TopicPartitionOffset);
                 }
@@ -151,9 +165,40 @@ public class ProtocolAssignedConsumer : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Unhandled processing error at {TPO}. Backing off briefly.",
-                        result?.TopicPartitionOffset);
-                    await Task.Delay(1000, stoppingToken);
+                    if (result is not null)
+                    {
+                        var tpo = result.TopicPartitionOffset;
+                        var attempts = _failureAttempts.TryGetValue(tpo, out var prior) ? prior + 1 : 1;
+                        _failureAttempts[tpo] = attempts;
+
+                        if (attempts >= MaxProcessingAttempts)
+                        {
+                            _logger.LogCritical(ex,
+                                "POISON — committing to unblock partition. " +
+                                "TPO={TPO}, attempts={Attempts}, payload={Payload}",
+                                tpo, attempts, result.Message?.Value);
+
+                            try { _consumer.Commit(result); }
+                            catch (Exception commitEx)
+                            {
+                                _logger.LogError(commitEx,
+                                    "Failed to commit poison offset {TPO}; will retry on next loop.", tpo);
+                            }
+                            _failureAttempts.Remove(tpo);
+                        }
+                        else
+                        {
+                            _logger.LogError(ex,
+                                "Unhandled processing error at {TPO} (attempt {Attempts}/{Max}). Backing off briefly.",
+                                tpo, attempts, MaxProcessingAttempts);
+                            await Task.Delay(1000, stoppingToken);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogError(ex, "Unhandled processing error with no result. Backing off briefly.");
+                        await Task.Delay(1000, stoppingToken);
+                    }
                 }
             }
         }
