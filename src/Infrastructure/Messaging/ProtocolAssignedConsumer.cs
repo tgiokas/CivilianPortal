@@ -19,15 +19,17 @@ namespace CitizenPortal.Infrastructure.Messaging;
 public class ProtocolAssignedConsumer : BackgroundService
 {
     private const int MaxProcessingAttempts = 5;
+    private static readonly TimeSpan RetryBackoff = TimeSpan.FromSeconds(1);
 
     private readonly IConsumer<string, string> _consumer;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ProtocolAssignedConsumer> _logger;
     private readonly string _topic;
 
-    // Per-offset failure counter. The consume loop runs single-threaded so a
-    // plain Dictionary is safe. Entries are pruned when an offset is committed.
-    private readonly Dictionary<TopicPartitionOffset, int> _failureAttempts = new();
+    // Tracks consecutive failures for the offset currently being retried so a
+    // persistently failing message is skipped instead of blocking the partition.
+    private TopicPartitionOffset? _retryOffset;
+    private int _retryAttempts;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -97,7 +99,7 @@ public class ProtocolAssignedConsumer : BackgroundService
                     result = _consumer.Consume(TimeSpan.FromSeconds(5));
                     if (result == null) continue;
 
-                    _logger.LogInformation("Message from topic {Topic} consumed", result.Topic);                  
+                    _logger.LogInformation("Message from topic {Topic} consumed", result.Topic);
 
                     var payload = ParsePayload(result.Message.Value);
 
@@ -127,8 +129,7 @@ public class ProtocolAssignedConsumer : BackgroundService
                             }
                             else
                             {
-                                // Transient or unexpected failure — throw so the outer catch handler
-                                // backs off 1 s and retries without committing the offset.
+                                // Transient failure — throw so the outer catch seeks back and retries.
                                 throw new InvalidOperationException(
                                     $"UpdateStatusFromDmsAsync failed for {payload.ApplicationPublicId}: " +
                                     $"{updateResult.ErrorCode} – {updateResult.Message}");
@@ -142,22 +143,19 @@ public class ProtocolAssignedConsumer : BackgroundService
                             result.TopicPartitionOffset);
                     }
 
-                    _consumer.Commit(result);
-                    _failureAttempts.Remove(result.TopicPartitionOffset);
-
-                    _logger.LogInformation("Offset committed at {TPO}", result.TopicPartitionOffset);
+                    CommitAndReset(result);
                 }
                 catch (ConsumeException ex)
                 {
                     _logger.LogError(ex, "ConsumeException at {TPO}: {Reason}",
                         result?.TopicPartitionOffset, ex.Error.Reason);
-                    await Task.Delay(1000, stoppingToken);
+                    await Task.Delay(RetryBackoff, stoppingToken);
                 }
                 catch (JsonException ex)
                 {
                     _logger.LogWarning(ex, "JSON error at {TPO}; committing to skip poison message.",
                         result?.TopicPartitionOffset);
-                    if (result is not null) _consumer.Commit(result);
+                    if (result is not null) CommitAndReset(result);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -165,71 +163,84 @@ public class ProtocolAssignedConsumer : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    if (result is not null)
+                    if (result is null)
                     {
-                        var tpo = result.TopicPartitionOffset;
-                        var attempts = _failureAttempts.TryGetValue(tpo, out var prior) ? prior + 1 : 1;
-                        _failureAttempts[tpo] = attempts;
-
-                        if (attempts >= MaxProcessingAttempts)
-                        {
-                            _logger.LogCritical(ex,
-                                "POISON — committing to unblock partition. " +
-                                "TPO={TPO}, attempts={Attempts}, payload={Payload}",
-                                tpo, attempts, result.Message?.Value);
-
-                            try { _consumer.Commit(result); }
-                            catch (Exception commitEx)
-                            {
-                                _logger.LogError(commitEx,
-                                    "Failed to commit poison offset {TPO}; will retry on next loop.", tpo);
-                            }
-                            _failureAttempts.Remove(tpo);
-                        }
-                        else
-                        {
-                            _logger.LogError(ex,
-                                "Unhandled processing error at {TPO} (attempt {Attempts}/{Max}). Backing off briefly.",
-                                tpo, attempts, MaxProcessingAttempts);
-                            await Task.Delay(1000, stoppingToken);
-                        }
+                        _logger.LogError(ex, "Unhandled processing error. Backing off briefly.");
+                        await Task.Delay(RetryBackoff, stoppingToken);
                     }
                     else
                     {
-                        _logger.LogError(ex, "Unhandled processing error with no result. Backing off briefly.");
-                        await Task.Delay(1000, stoppingToken);
+                        await HandleRetryableFailureAsync(result, ex, stoppingToken);
                     }
                 }
             }
         }
         finally
         {
-            try { _consumer.Close(); } // leave group & commit last offsets
+            try { _consumer.Close(); }
             catch (Exception ex) { _logger.LogWarning(ex, "Error closing Kafka consumer."); }
         }
+    }
 
+    /// Rewinds to the failed offset so the next poll re-delivers it, then backs off.
+    /// After MaxProcessingAttempts consecutive failures the message is committed as
+    /// poison so the partition can move on.
+    private async Task HandleRetryableFailureAsync(
+        ConsumeResult<string, string> result, Exception ex, CancellationToken ct)
+    {
+        if (_retryOffset == result.TopicPartitionOffset)
+            _retryAttempts++;
+        else
+        {
+            _retryOffset = result.TopicPartitionOffset;
+            _retryAttempts = 1;
+        }
+
+        if (_retryAttempts >= MaxProcessingAttempts)
+        {
+            _logger.LogCritical(ex,
+                "POISON — committing to unblock partition. " +
+                "TPO={TPO}, attempts={Attempts}, payload={Payload}",
+                result.TopicPartitionOffset, _retryAttempts, result.Message?.Value);
+            CommitAndReset(result);
+            return;
+        }
+
+        _logger.LogWarning(ex,
+            "Retryable failure at {TPO} (attempt {Attempt}/{Max}). Seeking back and backing off.",
+            result.TopicPartitionOffset, _retryAttempts, MaxProcessingAttempts);
+
+        try { _consumer.Seek(result.TopicPartitionOffset); }
+        catch (Exception seekEx) { _logger.LogWarning(seekEx, "Seek failed."); }
+
+        await Task.Delay(RetryBackoff, ct);
+    }
+
+    private void CommitAndReset(ConsumeResult<string, string> result)
+    {
+        _consumer.Commit(result);
+        _retryOffset = null;
+        _retryAttempts = 0;
+        _logger.LogInformation("Offset committed at {TPO}", result.TopicPartitionOffset);
     }
 
     private static ProtocolAssignedEvent? ParsePayload(string payload)
     {
-        // 1) Envelope with typed Content
         try
         {
             var env = JsonSerializer.Deserialize<KafkaMessage<ProtocolAssignedEvent>>(payload, JsonOpts);
             if (env?.Content is not null) return env.Content;
         }
-        catch (JsonException) { /* fall through */ }
+        catch (JsonException) { }
 
-        // 2) Envelope with string Content
         try
         {
             var envRaw = JsonSerializer.Deserialize<KafkaMessage<string>>(payload, JsonOpts);
             if (!string.IsNullOrWhiteSpace(envRaw?.Content))
                 return JsonSerializer.Deserialize<ProtocolAssignedEvent>(envRaw.Content, JsonOpts);
         }
-        catch (JsonException) { /* fall through */ }
+        catch (JsonException) { }
 
-        // 3) Bare DTO
         try
         {
             return JsonSerializer.Deserialize<ProtocolAssignedEvent>(payload, JsonOpts);
