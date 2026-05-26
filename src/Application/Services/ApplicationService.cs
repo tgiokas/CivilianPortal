@@ -1,4 +1,4 @@
-using System.ComponentModel.DataAnnotations;
+ο»Ώusing System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
@@ -80,7 +80,7 @@ public class ApplicationService : IApplicationService
         string externalSystemId,
         CancellationToken cancellationToken = default)
     {
-        var (isValid, errorCodes) = ValidateSubmitApplicationRequest(request, files);
+        var (isValid, errorCodes) = ValidateSubmitApplicationRequest(request, files, externalSystemId);
         if (!isValid)
             return _errors.Fail<ApplicationSubmittedDto>(errorCodes);
 
@@ -210,89 +210,106 @@ public class ApplicationService : IApplicationService
             }
         }
 
-        // 4. Single DB transaction: save Application + Documents + OutboxMessage
-        // 5. Send email after commit, since it's not critical to be in the same transaction and we don't want to delay the commit with email service calls.
-        using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
+        // 4. Single DB transaction: save Application + Documents + OutboxMessage.
+        //    Storage uploads above are compensated on failure. Post-commit work
+        //    (logging, notification email) lives outside the transaction try
+        //    so it can't trigger storage cleanup once the DB rows are durable.
+        Domain.Entities.Application application;
+        using (var transaction = await _dbContext.BeginTransactionAsync(cancellationToken))
+        {
+            try
+            {
+                application = new Domain.Entities.Application
+                {
+                    PublicId = applicationPublicId,
+                    UserId = citizenUser.Id,
+                    Subject = request.Subject,
+                    Body = request.Body,
+                    Email = request.Email,
+                    Status = ApplicationStatus.Submitted,
+                    CreatedAt = submittedAt,
+                    Documents = uploadedDocs
+                };
+
+                await _applicationRepo.AddWithoutSaveAsync(application);
+
+                var outboxEvent = new ApplicationSubmittedEvent
+                {
+                    ApplicationPublicId = application.PublicId,
+                    ExternalSystemId = externalSystemId,
+                    Subject = application.Subject,
+                    Email = application.Email,
+                    Lastname = citizenUser.LastName ?? string.Empty,
+                    Firstname = citizenUser.FirstName ?? string.Empty,
+                    VatId = citizenUser.VatId ?? string.Empty,
+                    Documents = uploadedDocs.Select(d => new StorageDocumentLocator
+                    {
+                        Bucket = d.StorageBucket,
+                        Key = d.StorageKey,
+                        Kind = d.Kind,
+                        ContentType = d.ContentType
+                    }).ToList(),
+                    SubmittedAt = application.CreatedAt
+                };
+
+                var outboxMessage = new OutboxMessage
+                {
+                    EventType = "citizen.application.submitted",
+                    Key = application.PublicId.ToString(),
+                    Payload = JsonSerializer.Serialize(outboxEvent, OutboxJsonOptions)
+                };
+
+                await _outboxRepo.AddAsync(outboxMessage);
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                await transaction.CommitAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "DB transaction failed for citizen {CitizenUserId}. Attempting to clean up {DocCount} uploaded files.",
+                    request.UserId, uploadedDocs.Count);
+
+                // Use CancellationToken.None: if the request CT is already cancelled,
+                // cleanup must still run to avoid orphaning files in storage.
+                await CleanupUploadedFilesAsync(uploadedDocs, CancellationToken.None);
+
+                return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreatedFailed);
+            }
+        }
+
+        // 5. Post-commit, best-effort notification. Any failure here MUST NOT
+        //    trigger storage cleanup β€” the DB rows are already durable.
+        _logger.LogInformation(
+            "Application {PublicId} submitted by citizen {CitizenUserId}: " +
+            "1 application form + {AttachmentCount} attachment(s). Outbox message created.",
+            application.PublicId, request.UserId, uploadedDocs.Count - 1);
+
         try
         {
-            var application = new Domain.Entities.Application
-            {
-                PublicId = applicationPublicId,
-                UserId = citizenUser.Id,
-                Subject = request.Subject,
-                Body = request.Body,
-                Email = request.Email,
-                Status = ApplicationStatus.Submitted,
-                CreatedAt = submittedAt,
-                Documents = uploadedDocs
-            };
-
-            await _applicationRepo.AddWithoutSaveAsync(application);
-
-            var outboxEvent = new ApplicationSubmittedEvent
-            {
-                ApplicationPublicId = application.PublicId,
-                ExternalSystemId = externalSystemId,
-                Subject = application.Subject,
-                Email = application.Email,
-                Lastname = citizenUser.LastName ?? string.Empty,
-                Firstname = citizenUser.FirstName ?? string.Empty,
-                VatId = citizenUser.VatId ?? string.Empty,
-                Documents = uploadedDocs.Select(d => new StorageDocumentLocator
-                {
-                    Bucket = d.StorageBucket,
-                    Key = d.StorageKey,
-                    Kind = d.Kind,
-                    ContentType = d.ContentType
-                }).ToList(),
-                SubmittedAt = application.CreatedAt
-            };
-
-            var outboxMessage = new OutboxMessage
-            {
-                EventType = "citizen.application.submitted",
-                Key = application.PublicId.ToString(),
-                Payload = JsonSerializer.Serialize(outboxEvent, OutboxJsonOptions)
-            };
-
-            await _outboxRepo.AddAsync(outboxMessage);
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Application {PublicId} submitted by citizen {CitizenUserId}: " +
-                "1 application form + {AttachmentCount} attachment(s). Outbox message created.",
-                application.PublicId, request.UserId, uploadedDocs.Count - 1);
-
-            /// Send email
             await _emailSender.SendEmailAsync(new NotificationEmailDto
             {
                 Recipient = application.Email,
-                Subject = "Επιβεβαίωση Παραλαβής Αιτήματος",
-                Message = $"Σας γνωρίζουμε ότι η αίτησή σας υπεβλήθη με επιτυχία." +
-                    $"<br>Ακολουθεί αντίγραφο της αίτησής σας: " +
+                Subject = "Ξ•Ο€ΞΉΞ²ΞµΞ²Ξ±Ξ―Ο‰ΟƒΞ· Ξ Ξ±ΟΞ±Ξ»Ξ±Ξ²Ξ®Ο‚ Ξ‘ΞΉΟ„Ξ®ΞΌΞ±Ο„ΞΏΟ‚",
+                Message = $"Ξ£Ξ±Ο‚ Ξ³Ξ½Ο‰ΟΞ―Ξ¶ΞΏΟ…ΞΌΞµ ΟΟ„ΞΉ Ξ· Ξ±Ξ―Ο„Ξ·ΟƒΞ® ΟƒΞ±Ο‚ Ο…Ο€ΞµΞ²Ξ»Ξ®ΞΈΞ· ΞΌΞµ ΞµΟ€ΞΉΟ„Ο…Ο‡Ξ―Ξ±." +
+                    $"<br>Ξ‘ΞΊΞΏΞ»ΞΏΟ…ΞΈΞµΞ― Ξ±Ξ½Ο„Ξ―Ξ³ΟΞ±Ο†ΞΏ Ο„Ξ·Ο‚ Ξ±Ξ―Ο„Ξ·ΟƒΞ®Ο‚ ΟƒΞ±Ο‚: " +
                     $"<br>{application.Body}" +
-                    $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
-            }, _kafkaSettings.EmailTopic, cancellationToken);
-
-            return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
-            {
-                TrackingId = application.PublicId,
-                Status = ApplicationStatus.Submitted.ToString(),
-                Message = "Application submitted successfully. You will receive a protocol number via email."
-            });
+                    $"<br><br> Ξ•Ο…Ο‡Ξ±ΟΞΉΟƒΟ„ΞΏΟΞΌΞµ Ο€ΞΏΟ… ΞµΟ€ΞΉΞΊΞΏΞΉΞ½Ο‰Ξ½Ξ®ΟƒΞ±Ο„Ξµ ΞΌΞ±Ξ¶Ξ― ΞΌΞ±Ο‚."
+            }, _kafkaSettings.EmailTopic, CancellationToken.None);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "DB transaction failed for citizen {CitizenUserId}. Attempting to clean up {DocCount} uploaded files.",
-                request.UserId, uploadedDocs.Count);
-
-            await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
-
-            return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.ApplicationCreatedFailed);
+                "Post-commit notification failed for application {PublicId}; submission already persisted.",
+                application.PublicId);
         }
+
+        return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
+        {
+            TrackingId = application.PublicId,
+            Status = ApplicationStatus.Submitted.ToString(),
+            Message = "Application submitted successfully. You will receive a protocol number via email."
+        });
     }
 
     public async Task<Result<ApplicationDto>> GetApplicationAsync(Guid publicId)
@@ -354,10 +371,10 @@ public class ApplicationService : IApplicationService
         await _emailSender.SendEmailAsync(new NotificationEmailDto
         {
             Recipient = application.Email,
-            Subject = "Επιβεβαίωση Πρωτοκόλλησης Αιτήματος",
-            Message = $"Σας γνωρίζουμε ότι η αίτησή σας, που υπεβλήθη στις {{{application.CreatedAt}}}, " +
-                $"<br>έλαβε τον Αριθμό Πρωτοκόλλου {{{protocolEvent.ProtocolNumber}}}. " +
-                $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
+            Subject = "Ξ•Ο€ΞΉΞ²ΞµΞ²Ξ±Ξ―Ο‰ΟƒΞ· Ξ ΟΟ‰Ο„ΞΏΞΊΟΞ»Ξ»Ξ·ΟƒΞ·Ο‚ Ξ‘ΞΉΟ„Ξ®ΞΌΞ±Ο„ΞΏΟ‚",
+            Message = $"Ξ£Ξ±Ο‚ Ξ³Ξ½Ο‰ΟΞ―Ξ¶ΞΏΟ…ΞΌΞµ ΟΟ„ΞΉ Ξ· Ξ±Ξ―Ο„Ξ·ΟƒΞ® ΟƒΞ±Ο‚, Ο€ΞΏΟ… Ο…Ο€ΞµΞ²Ξ»Ξ®ΞΈΞ· ΟƒΟ„ΞΉΟ‚ {{{application.CreatedAt}}}, " +
+                $"<br>Ξ­Ξ»Ξ±Ξ²Ξµ Ο„ΞΏΞ½ Ξ‘ΟΞΉΞΈΞΌΟ Ξ ΟΟ‰Ο„ΞΏΞΊΟΞ»Ξ»ΞΏΟ… {{{protocolEvent.ProtocolNumber}}}. " +
+                $"<br><br> Ξ•Ο…Ο‡Ξ±ΟΞΉΟƒΟ„ΞΏΟΞΌΞµ Ο€ΞΏΟ… ΞµΟ€ΞΉΞΊΞΏΞΉΞ½Ο‰Ξ½Ξ®ΟƒΞ±Ο„Ξµ ΞΌΞ±Ξ¶Ξ― ΞΌΞ±Ο‚."
         }, _kafkaSettings.EmailTopic);
 
         return Result<bool>.Ok(true, "Status updated");
@@ -401,11 +418,14 @@ public class ApplicationService : IApplicationService
     };
 
     private (bool IsValid, List<string> errorCodes) ValidateSubmitApplicationRequest(
-       ApplicationCreateDto request, List<IFormFile>? files)
+       ApplicationCreateDto request, List<IFormFile>? files, string externalSystemId)
     {
         List<string> errorCodes = [];
 
         if (request.UserId == Guid.Empty)
+            errorCodes.Add(ErrorCodes.PORTAL.InvalidApplicationData);
+
+        if (string.IsNullOrWhiteSpace(externalSystemId))
             errorCodes.Add(ErrorCodes.PORTAL.InvalidApplicationData);
 
         // Subject

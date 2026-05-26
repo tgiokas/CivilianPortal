@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 
+using Npgsql;
+
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Interfaces;
 using CitizenPortal.Infrastructure.Database;
@@ -8,6 +10,10 @@ namespace CitizenPortal.Infrastructure.Repositories;
 
 public class CitizenUserRepository : ICitizenUserRepository
 {
+    // Postgres SQLSTATE for unique_violation. Anything else from
+    // DbUpdateException is a real failure and must propagate.
+    private const string UniqueViolationSqlState = "23505";
+
     private readonly ApplicationDbContext _dbContext;
 
     public CitizenUserRepository(ApplicationDbContext dbContext)
@@ -36,7 +42,8 @@ public class CitizenUserRepository : ICitizenUserRepository
             await _dbContext.SaveChangesAsync();
             return (newUser, true);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException pg
+                                           && pg.SqlState == UniqueViolationSqlState)
         {
             // A concurrent request inserted the same citizen between our read and write.
             // Detach the failed entity so the change tracker is clean, then re-fetch.
@@ -53,9 +60,15 @@ public class CitizenUserRepository : ICitizenUserRepository
         }
     }
 
-    public async Task UpdateAsync(CitizenUser user)
+    public async Task UpdateAsync(CitizenUser user, CancellationToken cancellationToken = default)
     {
         user.ModifiedAt = DateTime.UtcNow;
-        await _dbContext.SaveChangesAsync();
+
+        // Update() handles both tracked entities (already modified) and
+        // untracked entities (e.g. the lost-race branch from GetOrCreateAsync
+        // returns AsNoTracking) by attaching the entity in the Modified state.
+        _dbContext.CitizenUsers.Update(user);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

@@ -62,7 +62,7 @@ public class OutboxProcessor : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var outboxRepo = scope.ServiceProvider.GetRequiredService<IOutboxRepository>();
 
-        var pendingMessages = await outboxRepo.GetPendingAsync(batchSize: 20);
+        var pendingMessages = await outboxRepo.GetPendingAsync(batchSize: 20, cancellationToken);
 
         if (pendingMessages.Count == 0)
             return;
@@ -87,7 +87,7 @@ public class OutboxProcessor : BackgroundService
                     headers: headers,
                     cancellationToken: cancellationToken);
 
-                await outboxRepo.MarkAsProcessedAsync(message.Id);
+                await outboxRepo.MarkAsProcessedAsync(message.Id, cancellationToken);
 
                 _logger.LogDebug("Outbox message {EventId} published to {Topic}",
                     message.EventId, message.EventType);
@@ -97,7 +97,7 @@ public class OutboxProcessor : BackgroundService
                 _logger.LogWarning(ex, "Failed to publish outbox message {EventId} (retry {Retry})",
                     message.EventId, message.RetryCount);
 
-                await outboxRepo.MarkAsFailedAsync(message.Id, ex.Message);
+                await outboxRepo.MarkAsFailedAsync(message.Id, ex.Message, cancellationToken);
 
                 if (message.RetryCount + 1 >= MaxRetries)
                 {

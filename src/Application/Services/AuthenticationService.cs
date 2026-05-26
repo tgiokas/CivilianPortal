@@ -115,11 +115,10 @@ public class AuthenticationService : IAuthenticationService
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
         }
 
-        bool legalEntity = false;
-        if (string.IsNullOrWhiteSpace(firstName) || firstName == "null")
-        {
-            legalEntity = true;
-        }
+        // GSIS occasionally sends the literal string "null" for given_name when
+        // the subject is a legal entity (not a natural person). Treat that as
+        // "no first name" and flag the citizen as a legal entity.
+        bool legalEntity = string.IsNullOrWhiteSpace(firstName) || firstName == "null";
 
         // 3. Check if citizen exists in Citizen-portal DB
         var dbCitizen = await _citizenUserRepo.GetByKeycloakUserIdAsync(userId);
@@ -144,44 +143,23 @@ public class AuthenticationService : IAuthenticationService
             dbCitizen = provisioned;
 
             if (created)
+            {
                 _logger.LogInformation("Citizen {Email} provisioned successfully (Id: {Id})", email, dbCitizen.Id);
+            }
             else
+            {
+                // Lost the provisioning race; the existing row may have older
+                // claims than this token. Fall through to the claim-sync below
+                // so the winner's data doesn't go stale.
                 _logger.LogWarning("Concurrent provisioning detected for {Email} (Keycloak: {UserId}); using existing record.", email, userId);
-        }
-        else
-        {
-            bool updated = false;
-
-            if (!string.IsNullOrWhiteSpace(firstName) && dbCitizen.FirstName != firstName)
-            {
-                dbCitizen.FirstName = firstName;
-                updated = true;
             }
-            if (!string.IsNullOrWhiteSpace(lastName) && dbCitizen.LastName != lastName)
-            {
-                dbCitizen.LastName = lastName;
-                updated = true;
-            }
-            if (!string.IsNullOrWhiteSpace(taxisNetId) && dbCitizen.VatId != taxisNetId)
-            {
-                dbCitizen.VatId = taxisNetId;
-                updated = true;
-            }
-            if (!string.IsNullOrWhiteSpace(fatherName) && dbCitizen.FatherName != fatherName)
-            {
-                dbCitizen.FatherName = fatherName;
-                updated = true;
-            }
-
-            if (updated)
-            {
-                await _citizenUserRepo.UpdateAsync(dbCitizen);
-                _logger.LogInformation("Updated citizen {Email} profile from GSIS claims", email);
-            }
-
         }
 
-        // 5. Return tokens + citizen info
+        // 5. Sync claims into the persisted citizen (applies to both the
+        //    pre-existing branch and the lost-race branch above).
+        await SyncCitizenClaimsAsync(dbCitizen, firstName, lastName, taxisNetId, fatherName, legalEntity);
+
+        // 6. Return tokens + citizen info
         return Result<LoginResponseDto>.Ok(new LoginResponseDto
         {
             AccessToken = tokenResponse.Access_token ?? string.Empty,
@@ -197,5 +175,48 @@ public class AuthenticationService : IAuthenticationService
                 VatId = dbCitizen.VatId
             }
         });
+    }
+
+    private async Task SyncCitizenClaimsAsync(
+        CitizenUser dbCitizen,
+        string? firstName,
+        string? lastName,
+        string? taxisNetId,
+        string? fatherName,
+        bool legalEntity)
+    {
+        bool updated = false;
+
+        if (!string.IsNullOrWhiteSpace(firstName) && firstName != "null" && dbCitizen.FirstName != firstName)
+        {
+            dbCitizen.FirstName = firstName;
+            updated = true;
+        }
+        if (!string.IsNullOrWhiteSpace(lastName) && dbCitizen.LastName != lastName)
+        {
+            dbCitizen.LastName = lastName;
+            updated = true;
+        }
+        if (!string.IsNullOrWhiteSpace(taxisNetId) && dbCitizen.VatId != taxisNetId)
+        {
+            dbCitizen.VatId = taxisNetId;
+            updated = true;
+        }
+        if (!string.IsNullOrWhiteSpace(fatherName) && dbCitizen.FatherName != fatherName)
+        {
+            dbCitizen.FatherName = fatherName;
+            updated = true;
+        }
+        if (dbCitizen.LegalEntity != legalEntity)
+        {
+            dbCitizen.LegalEntity = legalEntity;
+            updated = true;
+        }
+
+        if (updated)
+        {
+            await _citizenUserRepo.UpdateAsync(dbCitizen);
+            _logger.LogInformation("Updated citizen {Email} profile from GSIS claims", dbCitizen.Email);
+        }
     }
 }

@@ -15,14 +15,14 @@ public class OutboxRepository : IOutboxRepository
         _dbContext = dbContext;
     }
 
-    public async Task<List<OutboxMessage>> GetPendingAsync(int batchSize = 20)
+    public async Task<List<OutboxMessage>> GetPendingAsync(int batchSize = 20, CancellationToken cancellationToken = default)
     {
         return await _dbContext.OutboxMessages
             .AsNoTracking()
             .Where(o => o.ProcessedAt == null && o.RetryCount < 5)
             .OrderBy(o => o.CreatedAt)
             .Take(batchSize)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     // No SaveChanges, caller commits the transaction alongside the Application insert.
@@ -31,20 +31,20 @@ public class OutboxRepository : IOutboxRepository
         await _dbContext.OutboxMessages.AddAsync(message);
     }
 
-    public async Task MarkAsProcessedAsync(int id)
+    public async Task MarkAsProcessedAsync(int id, CancellationToken cancellationToken = default)
     {
         await _dbContext.OutboxMessages
             .Where(o => o.Id == id)
-            .ExecuteUpdateAsync(s => s.SetProperty(o => o.ProcessedAt, DateTime.UtcNow));
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.ProcessedAt, DateTime.UtcNow), cancellationToken);
     }
 
-    public async Task MarkAsFailedAsync(int id, string error)
+    public async Task MarkAsFailedAsync(int id, string error, CancellationToken cancellationToken = default)
     {
         await _dbContext.OutboxMessages
             .Where(o => o.Id == id)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(o => o.RetryCount, o => o.RetryCount + 1)
                 .SetProperty(o => o.LastAttemptAt, DateTime.UtcNow)
-                .SetProperty(o => o.Error, error));
+                .SetProperty(o => o.Error, error), cancellationToken);
     }
 }

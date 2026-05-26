@@ -23,13 +23,22 @@ public class ApplicationRepository : IApplicationRepository
             .FirstOrDefaultAsync(a => a.PublicId == publicId);
     }
 
-    public async Task<List<Domain.Entities.Application>> GetByUserIdAsync(int userId)
+    public async Task<List<Domain.Entities.Application>> GetByUserIdAsync(int userId, int skip = 0, int take = 50)
     {
+        // Cap take to a hard ceiling so an over-eager caller can't load
+        // the entire table (plus joined documents) in one query.
+        const int maxTake = 200;
+        if (skip < 0) skip = 0;
+        if (take <= 0) take = 50;
+        if (take > maxTake) take = maxTake;
+
         return await _dbContext.Applications
             .AsNoTracking()
             .Include(a => a.Documents)
             .Where(a => a.UserId == userId)
             .OrderByDescending(a => a.CreatedAt)
+            .Skip(skip)
+            .Take(take)
             .ToListAsync();
     }
 

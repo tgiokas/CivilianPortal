@@ -6,6 +6,6 @@ public interface ICitizenUserRepository
 {
     Task<CitizenUser?> GetByKeycloakUserIdReadOnlyAsync(Guid keycloakUserId);
     Task<CitizenUser?> GetByKeycloakUserIdAsync(Guid keycloakUserId);
-    Task<(CitizenUser User, bool Created)> GetOrCreateAsync(CitizenUser newUser);    
-    Task UpdateAsync(CitizenUser user);
+    Task<(CitizenUser User, bool Created)> GetOrCreateAsync(CitizenUser newUser);
+    Task UpdateAsync(CitizenUser user, CancellationToken cancellationToken = default);
 }

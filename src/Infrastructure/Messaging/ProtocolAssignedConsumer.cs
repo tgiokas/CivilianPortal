@@ -80,6 +80,17 @@ public class ProtocolAssignedConsumer : BackgroundService
             }
         }
 
+        // Commit / no-commit policy for the catch blocks below:
+        //   * Successful processing  → Commit(result) at the end of the try.
+        //   * ApplicationNotFound    → Commit (idempotency: nothing to retry).
+        //   * JsonException          → Commit (poison message; skip it).
+        //   * ConsumeException       → No commit (transient Kafka error, back off
+        //                              and reprocess the same offset on the next
+        //                              poll).
+        //   * Any other Exception    → No commit (transient processing error;
+        //                              back off and reprocess).
+        // No commit means Kafka will redeliver the same offset, so the message
+        // is retried until it either succeeds or hits a poison path above.
         try
         {
             while (!stoppingToken.IsCancellationRequested)
