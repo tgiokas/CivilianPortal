@@ -64,6 +64,7 @@ public static class InfrastructureServiceRegistration
 
         // === Kafka ===
         services.AddSingleton<IMessagePublisher, KafkaPublisher>();
+        services.AddSingleton<IEmailSender, KafkaEmailSender>();
 
         // === Background Services ===
         services.AddHostedService<OutboxProcessor>();           // Publishes outbox → Kafka

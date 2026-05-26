@@ -1,3 +1,4 @@
+using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
@@ -7,6 +8,7 @@ using CitizenPortal.Domain.Interfaces;
 using Confluent.Kafka;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -28,6 +30,8 @@ public class ApplicationService : IApplicationService
     private readonly IStorageApiClient _storageClient;
     private readonly IApplicationPdfGenerator _pdfGenerator;
     private readonly IApplicationDbContext _dbContext;
+    private readonly IEmailSender _emailSender;
+    private readonly KafkaSettings _kafkaSettings;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<ApplicationService> _logger;
 
@@ -45,6 +49,8 @@ public class ApplicationService : IApplicationService
         IStorageApiClient storageClient,
         IApplicationPdfGenerator pdfGenerator,
         IApplicationDbContext dbContext,
+        IEmailSender emailSender,
+        IOptions<KafkaSettings> kafkaOptions,
         IErrorCatalog errors,
         ILogger<ApplicationService> logger)
     {
@@ -54,6 +60,8 @@ public class ApplicationService : IApplicationService
         _storageClient = storageClient;
         _pdfGenerator = pdfGenerator;
         _dbContext = dbContext;
+        _emailSender = emailSender;
+        _kafkaSettings = kafkaOptions.Value;
         _errors = errors;
         _logger = logger;
     }
@@ -248,6 +256,13 @@ public class ApplicationService : IApplicationService
                 "1 application form + {AttachmentCount} attachment(s). Outbox message created.",
                 application.PublicId, request.UserId, uploadedDocs.Count - 1);
 
+            await _emailSender.SendEmailAsync(new NotificationEmailDto
+            {
+                Recipient = application.Email,
+                Subject = "Application received",
+                Body = $"Your application has been received. Tracking ID: {application.PublicId}"
+            }, _kafkaSettings.SubmittedEmailTopic, cancellationToken);
+
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
                 TrackingId = application.PublicId,
@@ -322,6 +337,13 @@ public class ApplicationService : IApplicationService
         _logger.LogInformation(
             "Application {PublicId} updated: status={Status}, protocol={ProtocolNumber}.",
             protocolEvent.ApplicationPublicId, newStatus, protocolEvent.ProtocolNumber);
+
+        await _emailSender.SendEmailAsync(new NotificationEmailDto
+        {
+            Recipient = application.Email,
+            Subject = "Protocol number assigned",
+            Body = $"Your protocol number is {protocolEvent.ProtocolNumber}."
+        }, _kafkaSettings.ProtocolEmailTopic);
 
         return Result<bool>.Ok(true, "Status updated");
     }
