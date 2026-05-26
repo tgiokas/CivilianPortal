@@ -350,8 +350,7 @@ public class ApplicationService : IApplicationService
         if (!updated)
         {
             // The single-write guard in UpdateStatusAsync rejects rows that already
-            // have a ProtocolNumber. Re-fetch to tell "already protocoled" (normal
-            // idempotency outcome) apart from "row vanished" (anomaly).
+            // have a ProtocolNumber. Re-fetch to tell "already protocoled" (normal idempotency outcome) 
             var current = await _applicationRepo.GetByPublicIdAsync(protocolEvent.ApplicationPublicId);
             if (current is not null && !string.IsNullOrEmpty(current.ProtocolNumber))
             {

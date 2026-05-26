@@ -177,7 +177,7 @@ public class ProtocolAssignedConsumer : BackgroundService
         }
         finally
         {
-            try { _consumer.Close(); }
+            try { _consumer.Close(); } // leave group & commit last offsets
             catch (Exception ex) { _logger.LogWarning(ex, "Error closing Kafka consumer."); }
         }
     }
@@ -226,21 +226,24 @@ public class ProtocolAssignedConsumer : BackgroundService
 
     private static ProtocolAssignedEvent? ParsePayload(string payload)
     {
+        // 1) Envelope with typed Content
         try
         {
             var env = JsonSerializer.Deserialize<KafkaMessage<ProtocolAssignedEvent>>(payload, JsonOpts);
             if (env?.Content is not null) return env.Content;
         }
-        catch (JsonException) { }
+        catch (JsonException) { /* fall through */ }
 
+        // 2) Envelope with string Content
         try
         {
             var envRaw = JsonSerializer.Deserialize<KafkaMessage<string>>(payload, JsonOpts);
             if (!string.IsNullOrWhiteSpace(envRaw?.Content))
                 return JsonSerializer.Deserialize<ProtocolAssignedEvent>(envRaw.Content, JsonOpts);
         }
-        catch (JsonException) { }
+        catch (JsonException) { /* fall through */ }
 
+        // 3) Bare DTO
         try
         {
             return JsonSerializer.Deserialize<ProtocolAssignedEvent>(payload, JsonOpts);
