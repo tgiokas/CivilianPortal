@@ -269,11 +269,11 @@ public class ApplicationService : IApplicationService
             await _emailSender.SendEmailAsync(new NotificationEmailDto
             {
                 Recipient = application.Email,
-                Subject = "Επιβεβαίωση Παραλαβής Αιτήματος",
-                Message = $"Σας γνωρίζουμε ότι η αίτησή σας υπεβλήθη με επιτυχία." +
-                    $"<br>Ακολουθεί αντίγραφο της αίτησής σας: " +
+                Subject = "Ξ•Ο€ΞΉΞ²ΞµΞ²Ξ±Ξ―Ο‰ΟƒΞ· Ξ Ξ±ΟΞ±Ξ»Ξ±Ξ²Ξ®Ο‚ Ξ‘ΞΉΟ„Ξ®ΞΌΞ±Ο„ΞΏΟ‚",
+                Message = $"Ξ£Ξ±Ο‚ Ξ³Ξ½Ο‰ΟΞ―Ξ¶ΞΏΟ…ΞΌΞµ ΟΟ„ΞΉ Ξ· Ξ±Ξ―Ο„Ξ·ΟƒΞ® ΟƒΞ±Ο‚ Ο…Ο€ΞµΞ²Ξ»Ξ®ΞΈΞ· ΞΌΞµ ΞµΟ€ΞΉΟ„Ο…Ο‡Ξ―Ξ±." +
+                    $"<br>Ξ‘ΞΊΞΏΞ»ΞΏΟ…ΞΈΞµΞ― Ξ±Ξ½Ο„Ξ―Ξ³ΟΞ±Ο†ΞΏ Ο„Ξ·Ο‚ Ξ±Ξ―Ο„Ξ·ΟƒΞ®Ο‚ ΟƒΞ±Ο‚: " +
                     $"<br>{application.Body}" +
-                    $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
+                    $"<br><br> Ξ•Ο…Ο‡Ξ±ΟΞΉΟƒΟ„ΞΏΟΞΌΞµ Ο€ΞΏΟ… ΞµΟ€ΞΉΞΊΞΏΞΉΞ½Ο‰Ξ½Ξ®ΟƒΞ±Ο„Ξµ ΞΌΞ±Ξ¶Ξ― ΞΌΞ±Ο‚."
             }, _kafkaSettings.EmailTopic, cancellationToken);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
@@ -354,10 +354,10 @@ public class ApplicationService : IApplicationService
         await _emailSender.SendEmailAsync(new NotificationEmailDto
         {
             Recipient = application.Email,
-            Subject = "Επιβεβαίωση Πρωτοκόλλησης Αιτήματος",
-            Message = $"Σας γνωρίζουμε ότι η αίτησή σας, που υπεβλήθη στις {{{application.CreatedAt}}}, " +
-                $"<br>έλαβε τον Αριθμό Πρωτοκόλλου {{{protocolEvent.ProtocolNumber}}}. " +
-                $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
+            Subject = "Ξ•Ο€ΞΉΞ²ΞµΞ²Ξ±Ξ―Ο‰ΟƒΞ· Ξ ΟΟ‰Ο„ΞΏΞΊΟΞ»Ξ»Ξ·ΟƒΞ·Ο‚ Ξ‘ΞΉΟ„Ξ®ΞΌΞ±Ο„ΞΏΟ‚",
+            Message = $"Ξ£Ξ±Ο‚ Ξ³Ξ½Ο‰ΟΞ―Ξ¶ΞΏΟ…ΞΌΞµ ΟΟ„ΞΉ Ξ· Ξ±Ξ―Ο„Ξ·ΟƒΞ® ΟƒΞ±Ο‚, Ο€ΞΏΟ… Ο…Ο€ΞµΞ²Ξ»Ξ®ΞΈΞ· ΟƒΟ„ΞΉΟ‚ {{{application.CreatedAt}}}, " +
+                $"<br>Ξ­Ξ»Ξ±Ξ²Ξµ Ο„ΞΏΞ½ Ξ‘ΟΞΉΞΈΞΌΟ Ξ ΟΟ‰Ο„ΞΏΞΊΟΞ»Ξ»ΞΏΟ… {{{protocolEvent.ProtocolNumber}}}. " +
+                $"<br><br> Ξ•Ο…Ο‡Ξ±ΟΞΉΟƒΟ„ΞΏΟΞΌΞµ Ο€ΞΏΟ… ΞµΟ€ΞΉΞΊΞΏΞΉΞ½Ο‰Ξ½Ξ®ΟƒΞ±Ο„Ξµ ΞΌΞ±Ξ¶Ξ― ΞΌΞ±Ο‚."
         }, _kafkaSettings.EmailTopic);
 
         return Result<bool>.Ok(true, "Status updated");
