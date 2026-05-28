@@ -12,6 +12,7 @@ public class Application
     public string Email { get; set; } = string.Empty;      // Contact email for this application
     public ApplicationStatus Status { get; set; } = ApplicationStatus.Submitted;
     public string? ProtocolNumber { get; set; }             // Assigned by DMS (e.g. "1001/2026")
+    public string? ProtocolYear { get; set; }               // Assigned by DMS (e.g. "2026")
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ModifiedAt { get; set; }
 

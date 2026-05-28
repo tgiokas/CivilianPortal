@@ -45,6 +45,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(a => a.Email).IsRequired().HasMaxLength(320);
             entity.Property(a => a.Status).HasConversion<int>().HasDefaultValue(ApplicationStatus.Submitted);
             entity.Property(a => a.ProtocolNumber).HasMaxLength(50);
+            entity.Property(a => a.ProtocolYear).HasMaxLength(4);
             
             entity.HasIndex(a => a.PublicId).IsUnique();
             entity.HasIndex(a => a.UserId);

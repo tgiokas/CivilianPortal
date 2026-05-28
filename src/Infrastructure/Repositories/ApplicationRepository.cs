@@ -39,7 +39,7 @@ public class ApplicationRepository : IApplicationRepository
         await _dbContext.Applications.AddAsync(application);
     }
 
-    public async Task<bool> UpdateStatusAsync(int applicationId, ApplicationStatus status, string protocolNumber)
+    public async Task<bool> UpdateStatusAsync(int applicationId, ApplicationStatus status, string protocolNumber, string? protocolYear)
     {
         var rows = await _dbContext.Applications
             .Where(a => a.Id == applicationId
@@ -47,6 +47,7 @@ public class ApplicationRepository : IApplicationRepository
             .ExecuteUpdateAsync(s => s
                 .SetProperty(a => a.Status, status)
                 .SetProperty(a => a.ProtocolNumber, protocolNumber)
+                .SetProperty(a => a.ProtocolYear, protocolYear)
                 .SetProperty(a => a.ModifiedAt, DateTime.UtcNow));
         return rows > 0;
     }

@@ -8,6 +8,7 @@ public class ApplicationDto
     public string Body { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string? ProtocolNumber { get; set; }
+    public string? ProtocolYear { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? ModifiedAt { get; set; }
     public List<ApplicationDocumentDto> Documents { get; set; } = [];

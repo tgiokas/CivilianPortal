@@ -336,7 +336,7 @@ public class ApplicationService : IApplicationService
             : ApplicationStatus.Delivered;
 
         var updated = await _applicationRepo.UpdateStatusAsync(
-            application.Id, newStatus, protocolEvent.ProtocolNumber);
+            application.Id, newStatus, protocolEvent.ProtocolNumber, protocolEvent.ProtocolYear);
 
         if (!updated)
         {
@@ -387,6 +387,7 @@ public class ApplicationService : IApplicationService
         Body = app.Body,
         Status = app.Status.ToString(),
         ProtocolNumber = app.ProtocolNumber,
+        ProtocolYear = app.ProtocolYear,
         CreatedAt = app.CreatedAt,
         ModifiedAt = app.ModifiedAt,
         Documents = app.Documents.Select(d => new ApplicationDocumentDto
