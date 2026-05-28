@@ -375,8 +375,8 @@ public class ApplicationService : IApplicationService
         {
             Recipient = application.Email,
             Subject = "Επιβεβαίωση Πρωτοκόλλησης Αιτήματος",
-            Message = $"Σας γνωρίζουμε ότι η αίτησή σας, που υπεβλήθη στις {{{application.CreatedAt}}}, " +
-                $"<br>έλαβε τον Αριθμό Πρωτοκόλλου {{{protocolEvent.ProtocolNumber}}}. " +
+            Message = $"Σας γνωρίζουμε ότι η αίτησή σας, που υπεβλήθη στις {application.CreatedAt}, " +
+                $"<br>έλαβε τον Αριθμό Πρωτοκόλλου {protocolEvent.ProtocolNumber}/{protocolEvent.ProtocolYear}. " +
                 $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
         }, _kafkaSettings.NotificationTopic);
 
