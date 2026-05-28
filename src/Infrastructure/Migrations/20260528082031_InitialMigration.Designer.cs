@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CitizenPortal.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260511090306_InitialMigration")]
+    [Migration("20260528082031_InitialMigration")]
     partial class InitialMigration
     {
         /// <inheritdoc />
@@ -57,6 +57,11 @@ namespace CitizenPortal.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("protocol_number");
+
+                    b.Property<string>("ProtocolYear")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("protocol_year");
 
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")

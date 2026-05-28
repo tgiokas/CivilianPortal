@@ -67,6 +67,7 @@ namespace CitizenPortal.Infrastructure.Migrations
                     email = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: false),
                     status = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     protocol_number = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    protocol_year = table.Column<string>(type: "character varying(4)", maxLength: 4, nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     modified_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },

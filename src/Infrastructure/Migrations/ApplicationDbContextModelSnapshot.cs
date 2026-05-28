@@ -55,6 +55,11 @@ namespace CitizenPortal.Infrastructure.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("protocol_number");
 
+                    b.Property<string>("ProtocolYear")
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("protocol_year");
+
                     b.Property<Guid>("PublicId")
                         .HasColumnType("uuid")
                         .HasColumnName("public_id");
