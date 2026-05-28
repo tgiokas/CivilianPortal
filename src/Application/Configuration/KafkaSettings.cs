@@ -25,7 +25,7 @@ public class KafkaSettings
 
     // Producer     
     public string SubmittedTopic { get; set; } = string.Empty;
-    public string EmailTopic { get; set; } = string.Empty;    
+    public string NotificationTopic { get; set; } = string.Empty;
 
     // Wait between retries to avoid hammering the broker
     public int RetryBackoffMs { get; set; } = 100;
@@ -66,8 +66,8 @@ public class KafkaSettings
             SubmittedTopic = configuration["PORTAL_KAFKA_SUBMITTED_TOPIC"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_SUBMITTED_TOPIC is not set."),
             
-            EmailTopic = configuration["PORTAL_KAFKA_EMAIL_TOPIC"]
-                ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_EMAIL_TOPIC is not set."),
+            NotificationTopic = configuration["PORTAL_KAFKA_NOTIFICATION_TOPIC"]
+                ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_NOTIFICATION_TOPIC is not set."),
             RetryBackoffMs = ParseInt(configuration, "PORTAL_KAFKA_RETRY_BACKOFF_MS"),
             RequestTimeoutMs = ParseInt(configuration, "PORTAL_KAFKA_REQUEST_TIMEOUT_MS"),
             MessageTimeoutMs = ParseInt(configuration, "PORTAL_KAFKA_MESSAGE_TIMEOUT_MS"),

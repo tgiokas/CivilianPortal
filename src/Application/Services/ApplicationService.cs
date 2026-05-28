@@ -250,7 +250,7 @@ public class ApplicationService : IApplicationService
 
             var outboxMessage = new OutboxMessage
             {
-                EventType = "citizen.application.submitted",
+                EventType = _kafkaSettings.SubmittedTopic,
                 Key = application.PublicId.ToString(),
                 Payload = JsonSerializer.Serialize(outboxEvent, OutboxJsonOptions)
             };
@@ -274,7 +274,7 @@ public class ApplicationService : IApplicationService
                     $"<br>Ακολουθεί αντίγραφο της αίτησής σας: " +
                     $"<br>{application.Body}" +
                     $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
-            }, _kafkaSettings.EmailTopic, cancellationToken);
+            }, _kafkaSettings.NotificationTopic, cancellationToken);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
             {
@@ -331,15 +331,35 @@ public class ApplicationService : IApplicationService
             return _errors.Fail<bool>(ErrorCodes.PORTAL.ApplicationNotFound);
         }
 
-        var newStatus = Enum.TryParse<ApplicationStatus>(protocolEvent.Status, true, out var parsed)
-            ? parsed
-            : ApplicationStatus.Delivered;
+      ApplicationStatus newStatus;
+        if (Enum.TryParse<ApplicationStatus>(protocolEvent.Status, true, out var parsed))
+        {
+            newStatus = parsed;
+        }
+        else
+        {
+            newStatus = ApplicationStatus.Delivered;
+            _logger.LogWarning(
+                "Unknown DMS status '{Status}' for application {PublicId}; falling back to {Fallback}.",
+                protocolEvent.Status, protocolEvent.ApplicationPublicId, newStatus);
+        }
 
         var updated = await _applicationRepo.UpdateStatusAsync(
             application.Id, newStatus, protocolEvent.ProtocolNumber, protocolEvent.ProtocolYear);
 
         if (!updated)
         {
+            // The single-write guard in UpdateStatusAsync rejects rows that already
+            // have a ProtocolNumber. Re-fetch to tell "already protocoled" (normal idempotency outcome) 
+            var current = await _applicationRepo.GetByPublicIdAsync(protocolEvent.ApplicationPublicId);
+            if (current is not null && !string.IsNullOrEmpty(current.ProtocolNumber))
+            {
+                _logger.LogInformation(
+                    "Application {PublicId} (Id={Id}) is already protocoled with {ProtocolNumber}; skipping duplicate assignment of {IncomingProtocol}.",
+                    protocolEvent.ApplicationPublicId, application.Id,
+                    current.ProtocolNumber, protocolEvent.ProtocolNumber);
+                return _errors.Fail<bool>(ErrorCodes.PORTAL.ApplicationAlreadyProtocoled);
+            }
             _logger.LogWarning(
                 "Application {PublicId} (Id={Id}) disappeared between read and write while " +
                 "applying protocol assignment.",
@@ -358,7 +378,7 @@ public class ApplicationService : IApplicationService
             Message = $"Σας γνωρίζουμε ότι η αίτησή σας, που υπεβλήθη στις {{{application.CreatedAt}}}, " +
                 $"<br>έλαβε τον Αριθμό Πρωτοκόλλου {{{protocolEvent.ProtocolNumber}}}. " +
                 $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
-        }, _kafkaSettings.EmailTopic);
+        }, _kafkaSettings.NotificationTopic);
 
         return Result<bool>.Ok(true, "Status updated");
     }

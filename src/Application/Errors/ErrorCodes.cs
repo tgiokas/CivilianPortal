@@ -31,5 +31,6 @@ public static class ErrorCodes
         public const string ApplicationBodyRequired = "PORTAL-024";
         public const string TooManyAttachments = "PORTAL-025";
         public const string TotalAttachmentSizeExceeded = "PORTAL-026";
+        public const string ApplicationAlreadyProtocoled = "PORTAL-027";
     }
 }
