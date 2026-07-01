@@ -16,6 +16,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public required DbSet<Domain.Entities.Application> Applications { get; set; }
     public required DbSet<ApplicationDocument> ApplicationDocuments { get; set; }
     public required DbSet<OutboxMessage> OutboxMessages { get; set; }
+    public required DbSet<AuthenticationAuditLog> AuthenticationAuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +90,23 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.Property(o => o.Key).HasMaxLength(200);
             
             entity.HasIndex(o => o.ProcessedAt).HasFilter("processed_at IS NULL");  // Fast lookup for pending
+        });
+
+        // AuthenticationAuditLog
+        modelBuilder.Entity<AuthenticationAuditLog>(entity =>
+        {
+            entity.ToTable("AuthenticationAuditLogs");
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.Provider).HasConversion<int>();
+            entity.Property(a => a.Reason).IsRequired().HasMaxLength(200);
+            entity.Property(a => a.IpAddress).HasMaxLength(64);   // IPv6 + optional port
+            entity.Property(a => a.Username).HasMaxLength(320);
+            entity.Property(a => a.MachineName).HasMaxLength(256);
+            entity.Property(a => a.FailureReason).HasMaxLength(500);
+
+            entity.HasIndex(a => a.CreatedAt);
+            entity.HasIndex(a => a.Provider);
+            entity.HasIndex(a => a.Success);
         });
     }
 

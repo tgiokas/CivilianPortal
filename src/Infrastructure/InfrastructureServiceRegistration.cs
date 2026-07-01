@@ -55,6 +55,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ICitizenUserRepository, CitizenUserRepository>();
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();
+        services.AddScoped<IAuthenticationAuditLogRepository, AuthenticationAuditLogRepository>();
 
         // === Application PDF generation ===
         // PdfSharpCore uses a process-wide static font resolver. The resolver

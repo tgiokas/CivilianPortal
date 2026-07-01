@@ -5,6 +5,7 @@ using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Domain.Entities;
+using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
 
 namespace CitizenPortal.Application.Services;
@@ -12,18 +13,21 @@ namespace CitizenPortal.Application.Services;
 public class AuthenticationService : IAuthenticationService
 {
     private readonly IKeycloakApiClient _keycloakClientAuth;
-    private readonly ICitizenUserRepository _citizenUserRepo;    
+    private readonly ICitizenUserRepository _citizenUserRepo;
+    private readonly IAuthenticationAuditLogRepository _auditRepo;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<AuthenticationService> _logger;
 
     public AuthenticationService(
         IKeycloakApiClient keycloakClientAuth,
-        ICitizenUserRepository citizenUserRepo,        
+        ICitizenUserRepository citizenUserRepo,
+        IAuthenticationAuditLogRepository auditRepo,
         IErrorCatalog errors,
         ILogger<AuthenticationService> logger)
     {
         _keycloakClientAuth = keycloakClientAuth;
-        _citizenUserRepo = citizenUserRepo;        
+        _citizenUserRepo = citizenUserRepo;
+        _auditRepo = auditRepo;
         _errors = errors;
         _logger = logger;
     }
@@ -39,7 +43,8 @@ public class AuthenticationService : IAuthenticationService
         }
 
         // Parse JWT claims and auto-provision citizen in Citizen-Portal DB
-        return await ProcessTokenAndProvisionCitizen(tokenResponse);
+        var jwtToken = new JwtSecurityTokenHandler().ReadJwtToken(tokenResponse.Access_token);
+        return await ProcessTokenAndProvisionCitizen(tokenResponse, jwtToken);
     }
 
     /// OAuth2 callback handler
@@ -48,18 +53,42 @@ public class AuthenticationService : IAuthenticationService
     /// 3. Check if citizen exists in our DB
     /// 4. If not -> auto-provision (create CitizenUser)
     /// 5. Return tokens + citizen info
-    public async Task<Result<LoginResponseDto>> OAuth2CallbackAsync(string code)
+    public async Task<Result<LoginResponseDto>> OAuth2CallbackAsync(string code, AuthAuditContext auditContext)
     {
         // 1. Exchange code for tokens
         var tokenResponse = await _keycloakClientAuth.GetAccessTokenByCodeAsync(code);
-        
+
         if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
         {
+            // No token -> we cannot know the provider or the user, but the call still happened.
+            await WriteAuditAsync(auditContext, AuthenticationProvider.Unknown,
+                username: null, keycloakUserId: null,
+                success: false, failureReason: "Token exchange with Keycloak failed");
+
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
         }
 
-        // 2. Parse claims and provision citizen in Citizen-Portal DB
-        return await ProcessTokenAndProvisionCitizen(tokenResponse);
+        // 2. Parse the access token once: reused for both auditing and citizen provisioning.
+        var jwtToken = new JwtSecurityTokenHandler().ReadJwtToken(tokenResponse.Access_token);
+
+        var provider = MapProvider(jwtToken.Claims.FirstOrDefault(c => c.Type == "identity_provider")?.Value);
+        var username = jwtToken.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value
+                       ?? jwtToken.Claims.FirstOrDefault(c => c.Type == "taxid" || c.Type == "afm")?.Value
+                       ?? jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+        Guid? keycloakUserId =
+            Guid.TryParse(jwtToken.Claims.FirstOrDefault(c => c.Type == "sub")?.Value, out var parsedId)
+                ? parsedId
+                : null;
+
+        // 3. Provision citizen in Citizen-Portal DB
+        var result = await ProcessTokenAndProvisionCitizen(tokenResponse, jwtToken);
+
+        // 4. Audit the outcome (success or failure) of this authentication call.
+        await WriteAuditAsync(auditContext, provider, username, keycloakUserId,
+            success: result.Success,
+            failureReason: result.Success ? null : (result.Message ?? "Authentication failed"));
+
+        return result;
     }
 
     public async Task<Result<RefreshResponseDto>> RefreshTokenAsync(string refreshToken)
@@ -89,13 +118,11 @@ public class AuthenticationService : IAuthenticationService
         return Result<bool>.Ok(true, message: "Logout successful");
     }
 
-    /// Private: shared logic for JWT parsing + citizen auto-provisioning
+    /// Private: shared logic for reading citizen claims + auto-provisioning.
+    /// The caller supplies the already-parsed access token (parsed once at the call site).
     /// Used by both LoginAsync (password grant) and OAuth2CallbackAsync (code grant)
-    private async Task<Result<LoginResponseDto>> ProcessTokenAndProvisionCitizen(TokenDto tokenResponse)
+    private async Task<Result<LoginResponseDto>> ProcessTokenAndProvisionCitizen(TokenDto tokenResponse, JwtSecurityToken jwtToken)
     {
-        var handler = new JwtSecurityTokenHandler();
-        var jwtToken = handler.ReadJwtToken(tokenResponse.Access_token);
-
         var keycloakUserId = jwtToken.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
         var email = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
         var firstName = jwtToken.Claims.FirstOrDefault(c => c.Type == "given_name")?.Value;
@@ -197,5 +224,52 @@ public class AuthenticationService : IAuthenticationService
                 VatId = dbCitizen.VatId
             }
         });
+    }
+
+    /// Classify the Keycloak broker alias (identity_provider claim) into the audited
+    /// authentication service. Matches on substring so it is resilient to the staging
+    /// vs production alias variants (e.g. gsis-taxis-test / gsis-govuser-test).
+    private static AuthenticationProvider MapProvider(string? idpAlias)
+    {
+        if (string.IsNullOrWhiteSpace(idpAlias))
+            return AuthenticationProvider.Unknown;
+
+        if (idpAlias.Contains("taxis", StringComparison.OrdinalIgnoreCase))
+            return AuthenticationProvider.TaxisNet;
+
+        if (idpAlias.Contains("gov", StringComparison.OrdinalIgnoreCase))
+            return AuthenticationProvider.PublicAdministration;
+
+        return AuthenticationProvider.Unknown;
+    }
+
+    /// Persist an audit record for an authentication call. Best-effort: a failure to
+    /// write the audit log must never break the authentication flow itself.
+    private async Task WriteAuditAsync(
+        AuthAuditContext auditContext,
+        AuthenticationProvider provider,
+        string? username,
+        Guid? keycloakUserId,
+        bool success,
+        string? failureReason)
+    {
+        try
+        {
+            await _auditRepo.AddAsync(new AuthenticationAuditLog
+            {
+                Provider = provider,
+                Reason = AuthenticationAuditLog.DefaultReason,
+                IpAddress = auditContext.IpAddress,
+                MachineName = auditContext.MachineName,
+                Username = username,
+                KeycloakUserId = keycloakUserId,
+                Success = success,
+                FailureReason = failureReason
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to write authentication audit log entry");
+        }
     }
 }

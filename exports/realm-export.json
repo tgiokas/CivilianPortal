@@ -650,6 +650,20 @@
         "claim.name" : "department_roles",
         "jsonType.label" : "String"
       }
+    }, {
+      "id" : "c1d2e3f4-a5b6-47c8-9d0e-1f2a3b4c5d6e",
+      "name" : "identity_provider",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-usersessionmodel-note-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "user.session.note" : "identity_provider",
+        "claim.name" : "identity_provider",
+        "jsonType.label" : "String",
+        "id.token.claim" : "true",
+        "access.token.claim" : "true",
+        "userinfo.token.claim" : "true"
+      }
     } ],
     "defaultClientScopes" : [ "web-origins", "service_account", "acr", "roles", "profile", "basic", "email" ],
     "optionalClientScopes" : [ "address", "phone", "organization", "offline_access", "microprofile-jwt" ],
