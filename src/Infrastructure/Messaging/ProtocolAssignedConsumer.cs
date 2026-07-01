@@ -53,6 +53,7 @@ public class ProtocolAssignedConsumer : BackgroundService
             SessionTimeoutMs = settings.SessionTimeoutMs,
             MaxPollIntervalMs = settings.MaxPollIntervalMs,
         };
+        consumerConfig.ApplySasl(settings);
 
         _consumer = new ConsumerBuilder<string, string>(consumerConfig).Build();
     }

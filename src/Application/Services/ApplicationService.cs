@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
@@ -9,9 +9,11 @@ using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
+using CitizenPortal.Application.Extensions;
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
+
 
 namespace CitizenPortal.Application.Services;
 
@@ -21,9 +23,9 @@ public class ApplicationService : IApplicationService
     private const string ApplicationFormFileName = "application-form.pdf";
     private const string ApplicationFormContentType = "application/pdf";
     private const string ApplicationFormKeyTemplate = "applications/{0}/generated/application-form.pdf";
-    private const long MaxAttachmentBytes = 500L * 1024 * 1024; // 500 MB storage backend limit
-    private const long MaxTotalAttachmentBytes = 1L * 1024 * 1024 * 1024; // 1 GB aggregate cap per submission
-    private const int MaxPdfBodyText = 2000; // 2000 chars max for PDF body text (to avoid overflow)
+    private const long MaxAttachmentBytes = 50L * 1024 * 1024; // 50 MB — matches Kestrel MaxRequestBodySize
+    private const long MaxTotalAttachmentBytes = 50L * 1024 * 1024; // 50 MB aggregate cap per submission
+    private const int MaxPdfBodyText = 2000; // 2000 chars max for PDF body text
     private const int MaxSubjectLength = 500; // matches Applications.Subject column
     private const int MaxEmailLength = 320;   // matches Applications.Email column
     private const int MaxAttachmentCount = 10;    
@@ -91,7 +93,7 @@ public class ApplicationService : IApplicationService
             return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.UserNotFound);
         }
 
-        // Generate PublicId early so we can use it in storage keys
+        // Generate PublicId
         var applicationPublicId = Guid.NewGuid();
         var submittedAt = DateTime.UtcNow;
 
@@ -375,7 +377,7 @@ public class ApplicationService : IApplicationService
         {
             Recipient = application.Email,
             Subject = "Επιβεβαίωση Πρωτοκόλλησης Αιτήματος",
-            Message = $"Σας γνωρίζουμε ότι η αίτησή σας, που υπεβλήθη στις {application.CreatedAt}, " +
+            Message = $"Σας γνωρίζουμε ότι η αίτησή σας, που υπεβλήθη στις {application.CreatedAt.ToGreekDateTime()}, " +
                 $"<br>έλαβε τον Αριθμό Πρωτοκόλλου {protocolEvent.ProtocolNumber}/{protocolEvent.ProtocolYear}. " +
                 $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
         }, _kafkaSettings.NotificationTopic);

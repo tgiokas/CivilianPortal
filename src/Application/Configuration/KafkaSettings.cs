@@ -50,6 +50,12 @@ public class KafkaSettings
     // Max time between Consume() calls before consumer is considered stuck
     public int MaxPollIntervalMs { get; set; } = 300000;
 
+    // SASL / TLS — opt-in; all nullable; when absent behaviour is identical to before
+    public string? SecurityProtocol { get; set; }
+    public string? SaslMechanism { get; set; }
+    public string? SaslUsername { get; set; }
+    public string? SaslPassword { get; set; }
+
     public static KafkaSettings BindFromConfiguration(IConfiguration configuration)
     {
         return new KafkaSettings
@@ -65,7 +71,6 @@ public class KafkaSettings
             // Producer settings
             SubmittedTopic = configuration["PORTAL_KAFKA_SUBMITTED_TOPIC"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_SUBMITTED_TOPIC is not set."),
-            
             NotificationTopic = configuration["PORTAL_KAFKA_NOTIFICATION_TOPIC"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_NOTIFICATION_TOPIC is not set."),
             RetryBackoffMs = ParseInt(configuration, "PORTAL_KAFKA_RETRY_BACKOFF_MS"),
@@ -82,6 +87,12 @@ public class KafkaSettings
                 : throw new ArgumentException("PORTAL_KAFKA_AUTO_OFFSET_RESET is not a valid value.", nameof(configuration)),
             SessionTimeoutMs = ParseInt(configuration, "PORTAL_KAFKA_SESSION_TIMEOUT_MS"),
             MaxPollIntervalMs = ParseInt(configuration, "PORTAL_KAFKA_MAX_POLL_INTERVAL_MS"),
+
+            // SASL opt-in — absent / blank → no SASL applied
+            SecurityProtocol = configuration["PORTAL_KAFKA_SECURITY_PROTOCOL"],
+            SaslMechanism    = configuration["PORTAL_KAFKA_SASL_MECHANISM"],
+            SaslUsername     = configuration["PORTAL_KAFKA_SASL_USERNAME"],
+            SaslPassword     = configuration["PORTAL_KAFKA_SASL_PASSWORD"],
         };
     }
 

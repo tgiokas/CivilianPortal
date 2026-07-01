@@ -33,6 +33,7 @@ public sealed class KafkaPublisher : IMessagePublisher, IDisposable
             RequestTimeoutMs = settings.RequestTimeoutMs,
             MessageTimeoutMs = settings.MessageTimeoutMs,
         };
+        producerConfig.ApplySasl(settings);
 
         _producer = new ProducerBuilder<string, string>(producerConfig).Build();
 

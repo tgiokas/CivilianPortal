@@ -11,6 +11,8 @@ public abstract class ApiClientBase
     protected readonly HttpClient _httpClient;
     protected readonly ILogger _logger;
 
+    private const int MaxPayloadLength = 4096;
+
     const string LogMessageTemplate =
         "HTTP {Direction} {RequestMethod} {RequestPath} {RequestPayload} responded {HttpStatusCode} {ResponsePayload} in {Elapsed:0.0000} ms";
 
@@ -25,22 +27,8 @@ public abstract class ApiClientBase
 
     protected async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken = default)
     {
-        var contentType = request.Content?.Headers.ContentType?.MediaType ?? string.Empty;
-
-        string requestBody;
-        if (contentType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
-        {
-            requestBody = $"[{contentType}]";
-        }
-        else if (contentType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
-        {
-            var requestBodyRaw = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : string.Empty;
-            requestBody = FormUrlEncodedRedactor.TryRedact(requestBodyRaw);
-        }
-        else
-        {
-            requestBody = request.Content != null ? await request.Content.ReadAsStringAsync(cancellationToken) : string.Empty;
-        }
+        string requestBody = await BuildSafeRequestBodyAsync(request, cancellationToken);
+        requestBody = Truncate(requestBody, MaxPayloadLength);
 
         var sw = Stopwatch.StartNew();
 
@@ -62,16 +50,60 @@ public abstract class ApiClientBase
 
         sw.Stop();
 
-        string responseBodyRaw = await response.Content.ReadAsStringAsync(cancellationToken);
-        string responseBody = JsonRedactor.TryRedact(responseBodyRaw);
+        string responseBody = await BuildSafeResponseBodyAsync(response, cancellationToken);
+        responseBody = Truncate(responseBody, MaxPayloadLength);
 
         int statusCode = (int)response.StatusCode;
         LogLevel logLevel = statusCode > 499 ? LogLevel.Error : LogLevel.Information;
 
         _logger.Log(logLevel, LogMessageTemplate, "Outgoing", request.Method,
-            request.RequestUri, requestBody, statusCode, responseBody, (long)sw.ElapsedMilliseconds);
+            request.RequestUri, requestBody, statusCode, responseBody, sw.ElapsedMilliseconds);
 
         return response;
     }
+
+    private static async Task<string> BuildSafeRequestBodyAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        if (request.Content is null)
+            return string.Empty;
+
+        var contentType = request.Content.Headers.ContentType?.MediaType ?? string.Empty;
+
+        // File uploads: never read the bytes into a string.
+        if (contentType.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase))
+            return $"[{contentType}]";
+
+        var raw = await request.Content.ReadAsStringAsync(cancellationToken);
+
+        if (contentType.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+            return FormUrlEncodedRedactor.TryRedact(raw);
+
+        // JSON and any other text body: redact.
+        return JsonRedactor.TryRedact(raw);
+    }
+
+    private static async Task<string> BuildSafeResponseBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? string.Empty;
+
+        bool isTextual =
+            contentType.Length == 0 ||  
+            contentType.Contains("application/json", StringComparison.OrdinalIgnoreCase) ||
+            contentType.StartsWith("text/", StringComparison.OrdinalIgnoreCase);
+
+        if (!isTextual)
+        {
+            var len = response.Content.Headers.ContentLength;
+            return $"[{contentType}; {len?.ToString() ?? "?"} bytes — body not logged]";
+        }
+
+        var raw = await response.Content.ReadAsStringAsync(cancellationToken);
+        return JsonRedactor.TryRedact(raw);
+    }
+
+    private static string Truncate(string input, int maxLen)
+    {
+        if (string.IsNullOrEmpty(input) || input.Length <= maxLen) return input;
+        return input.Substring(0, maxLen) + "...(truncated)";
+    }
 }
-      

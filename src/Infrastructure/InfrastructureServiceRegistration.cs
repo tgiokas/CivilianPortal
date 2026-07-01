@@ -67,29 +67,23 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IEmailSender, KafkaEmailSender>();
 
         // === Background Services ===
-        services.AddHostedService<OutboxProcessor>();           // Publishes outbox → Kafka
-        services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS → updates status
+        services.AddHostedService<OutboxProcessor>();           // Publishes outbox -> Kafka
+        services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS -> updates status
 
         // === HTTP Clients ===
-        // Both now consistent — BaseAddress set at DI level
-        // Trailing slash is required so relative endpoints (e.g. "realms/.../token") resolve under
-        // the configured path prefix (e.g. "/auth") instead of replacing it.
         var keycloakBaseUrl = keycloakSettings.BaseUrl.EndsWith('/')
             ? keycloakSettings.BaseUrl
             : keycloakSettings.BaseUrl + "/";
         services.AddHttpClient<IKeycloakApiClient, KeycloakApiClient>(client =>
         {
             client.BaseAddress = new Uri(keycloakBaseUrl);
-        }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
         });
 
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
         {
             client.BaseAddress = new Uri(storageClientSettings.BaseUrl);
         });
-
+        
         // Add Error Catalog Path
         var path = Path.Combine(Environment.CurrentDirectory, "errors.json");
         if (!File.Exists(path))

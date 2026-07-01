@@ -2,18 +2,13 @@
 
 public static class FormUrlEncodedRedactor
 {
+    private const string RedactedValue = "***REDACTED***";
+
     private static readonly HashSet<string> SensitiveKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        "password",
-        "newPassword",
-        "client_secret",
-        "refresh_token",
-        "access_token",
-        "token",
-        "id_token",
-        "code",
-        "loginToken",
-        "setupToken"
+        "password", "newPassword",
+        "refresh_token", "access_token", "token", "id_token", "loginToken", "setupToken",
+        "client_secret", "code"
     };
 
     public static string TryRedact(string input)
@@ -36,7 +31,7 @@ public static class FormUrlEncodedRedactor
                 var key = Uri.UnescapeDataString(kv[0]);
                 if (SensitiveKeys.Contains(key))
                 {
-                    pairs[i] = $"{kv[0]}=***REDACTED***";
+                    pairs[i] = $"{kv[0]}={RedactedValue}";
                 }
             }
 
@@ -46,6 +41,5 @@ public static class FormUrlEncodedRedactor
         {
             return input;
         }
-      
     }
 }

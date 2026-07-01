@@ -12,8 +12,12 @@ using CitizenPortal.Application;
 using CitizenPortal.Application.Configuration;
 using CitizenPortal.Infrastructure;
 using CitizenPortal.Infrastructure.Database;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Register health check services
+builder.Services.AddHealthChecks();
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -23,6 +27,9 @@ Log.Logger = new LoggerConfiguration()
 Log.Information("Configuration is starting...");
 
 builder.Host.UseSerilog();
+
+// Add Kestrel server options to allow large file uploads (up to 50 MB)
+builder.Services.Configure<KestrelServerOptions>(o => o.Limits.MaxRequestBodySize = 50L * 1024 * 1024); // 50 MB
 
 // Add Application services
 builder.Services.AddApplicationServices();
@@ -86,10 +93,7 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowCredentials();
     });
-}); 
-
-// Health checks
-builder.Services.AddHealthChecks();
+});
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -114,7 +118,7 @@ app.UseForwardedHeaders();
 // Expose a simple health endpoint at /health
 app.MapHealthChecks("/health");
 
-Log.Information("CitizenPortal is starting...");
+Log.Information("Application is starting...");
 
 if (app.Environment.IsDevelopment())
 {
@@ -130,6 +134,7 @@ Log.Information("Database migrations applied (if any).");
 
 app.UseCors("CorsPolicy");
 app.UseMiddleware<ErrorHandlingMiddleware>();
+app.UseMiddleware<LogMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
