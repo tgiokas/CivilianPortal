@@ -97,7 +97,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         {
             entity.ToTable("AuthenticationAuditLogs");
             entity.HasKey(a => a.Id);
-            entity.Property(a => a.Provider).HasConversion<int>();
+            entity.Property(a => a.Provider).IsRequired().HasMaxLength(64);
             entity.Property(a => a.Reason).IsRequired().HasMaxLength(200);
             entity.Property(a => a.IpAddress).HasMaxLength(64);   // IPv6 + optional port
             entity.Property(a => a.Username).HasMaxLength(320);

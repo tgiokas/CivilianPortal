@@ -19,7 +19,7 @@ namespace CitizenPortal.Infrastructure.Migrations
                     id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    provider = table.Column<int>(type: "integer", nullable: false),
+                    provider = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     reason = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     ip_address = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     username = table.Column<string>(type: "character varying(320)", maxLength: 320, nullable: true),

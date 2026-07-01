@@ -189,8 +189,10 @@ namespace CitizenPortal.Infrastructure.Migrations
                         .HasColumnType("character varying(256)")
                         .HasColumnName("machine_name");
 
-                    b.Property<int>("Provider")
-                        .HasColumnType("integer")
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
                         .HasColumnName("provider");
 
                     b.Property<string>("Reason")

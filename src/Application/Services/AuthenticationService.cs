@@ -5,7 +5,6 @@ using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Errors;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Domain.Entities;
-using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
 
 namespace CitizenPortal.Application.Services;
@@ -61,7 +60,7 @@ public class AuthenticationService : IAuthenticationService
         if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
         {
             // No token -> we cannot know the provider or the user, but the call still happened.
-            await WriteAuditAsync(auditContext, AuthenticationProvider.Unknown,
+            await WriteAuditAsync(auditContext, AuthenticationAuditLog.ProviderUnknown,
                 username: null, keycloakUserId: null,
                 success: false, failureReason: "Token exchange with Keycloak failed");
 
@@ -229,25 +228,25 @@ public class AuthenticationService : IAuthenticationService
     /// Classify the Keycloak broker alias (identity_provider claim) into the audited
     /// authentication service. Matches on substring so it is resilient to the staging
     /// vs production alias variants (e.g. gsis-taxis-test / gsis-govuser-test).
-    private static AuthenticationProvider MapProvider(string? idpAlias)
+    private static string MapProvider(string? idpAlias)
     {
         if (string.IsNullOrWhiteSpace(idpAlias))
-            return AuthenticationProvider.Unknown;
+            return AuthenticationAuditLog.ProviderUnknown;
 
         if (idpAlias.Contains("taxis", StringComparison.OrdinalIgnoreCase))
-            return AuthenticationProvider.TaxisNet;
+            return AuthenticationAuditLog.ProviderTaxisNet;
 
         if (idpAlias.Contains("gov", StringComparison.OrdinalIgnoreCase))
-            return AuthenticationProvider.PublicAdministration;
+            return AuthenticationAuditLog.ProviderPublicAdministration;
 
-        return AuthenticationProvider.Unknown;
+        return AuthenticationAuditLog.ProviderUnknown;
     }
 
     /// Persist an audit record for an authentication call. Best-effort: a failure to
     /// write the audit log must never break the authentication flow itself.
     private async Task WriteAuditAsync(
         AuthAuditContext auditContext,
-        AuthenticationProvider provider,
+        string provider,
         string? username,
         Guid? keycloakUserId,
         bool success,
