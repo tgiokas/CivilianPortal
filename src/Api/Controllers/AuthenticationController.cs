@@ -57,14 +57,11 @@ public class AuthenticationController : ControllerBase
         var frontendRedirectUrl = _configuration["FRONTEND_REDIRECTURI"]
             ?? "http://localhost:3000";
 
-        // IP is resolved from RemoteIpAddress; UseForwardedHeaders() runs early in the pipeline,
-        // so this already reflects the real client behind the reverse proxy. Machine name is not
-        // available for browser clients, so it is best-effort from an optional header.
+        // Client (workstation) IP: resolved from RemoteIpAddress. UseForwardedHeaders() runs early
+        // in the pipeline, so this already reflects the real client behind the reverse proxy.
+        // The server (machine) name is filled in by the service from the host itself.
         var auditContext = new AuthAuditContext(
-            HttpContext.Connection.RemoteIpAddress?.ToString(),
-            Request.Headers.TryGetValue("X-Machine-Name", out var machineName)
-                ? machineName.ToString()
-                : null);
+            HttpContext.Connection.RemoteIpAddress?.ToString());
 
         var result = await _authenticationService.OAuth2CallbackAsync(code, auditContext);
         

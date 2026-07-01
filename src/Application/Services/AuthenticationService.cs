@@ -11,6 +11,10 @@ namespace CitizenPortal.Application.Services;
 
 public class AuthenticationService : IAuthenticationService
 {
+    /// The portal server's own host name, resolved once for the process lifetime
+    /// (it never changes) and recorded as the «όνομα εξυπηρετητή» in every audit row.
+    private static readonly string ServerHostName = ResolveServerHostName();
+
     private readonly IKeycloakApiClient _keycloakClientAuth;
     private readonly ICitizenUserRepository _citizenUserRepo;
     private readonly IAuthenticationAuditLogRepository _auditRepo;
@@ -225,6 +229,21 @@ public class AuthenticationService : IAuthenticationService
         });
     }
 
+    /// Best-effort resolution of the host's machine name. Environment.MachineName is
+    /// cheap and effectively never throws, but we guard it so a hosting quirk can never
+    /// break authentication; it is resolved once and cached in <see cref="ServerHostName"/>.
+    private static string ResolveServerHostName()
+    {
+        try
+        {
+            return Environment.MachineName;
+        }
+        catch
+        {
+            return "Unknown";
+        }
+    }
+
     /// Classify the Keycloak broker alias (identity_provider claim) into the audited
     /// authentication service. Matches on substring so it is resilient to the staging
     /// vs production alias variants (e.g. gsis-taxis-test / gsis-govuser-test).
@@ -259,7 +278,7 @@ public class AuthenticationService : IAuthenticationService
                 Provider = provider,
                 Reason = AuthenticationAuditLog.DefaultReason,
                 IpAddress = auditContext.IpAddress,
-                MachineName = auditContext.MachineName,
+                MachineName = ServerHostName,
                 Username = username,
                 KeycloakUserId = keycloakUserId,
                 Success = success,
