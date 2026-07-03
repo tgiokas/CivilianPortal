@@ -244,6 +244,20 @@ public class AuthenticationService : IAuthenticationService
         }
     }
 
+    /// Resolve the «όνομα εξυπηρετητή / machine name» recorded in the audit row. Prefers the
+    /// workstation name self-reported by the caller (X-Machine-Name header); falls back to the
+    /// server host name when the header is absent so the column is never empty. The reported
+    /// value is untrusted client input, so it is capped at the column length (256) to guarantee
+    /// the audit row still persists instead of the insert throwing and the whole row being lost.
+    private static string ResolveMachineName(string? reportedMachineName)
+    {
+        if (string.IsNullOrWhiteSpace(reportedMachineName))
+            return ServerHostName;
+
+        var trimmed = reportedMachineName.Trim();
+        return trimmed.Length <= 256 ? trimmed : trimmed[..256];
+    }
+
     /// Classify the Keycloak broker alias (identity_provider claim) into the audited
     /// authentication service. Matches on substring so it is resilient to the staging
     /// vs production alias variants (e.g. gsis-taxis-test / gsis-govuser-test).
@@ -278,7 +292,7 @@ public class AuthenticationService : IAuthenticationService
                 Provider = provider,
                 Reason = AuthenticationAuditLog.DefaultReason,
                 IpAddress = auditContext.IpAddress,
-                MachineName = ServerHostName,
+                MachineName = ResolveMachineName(auditContext.MachineName),
                 Username = username,
                 KeycloakUserId = keycloakUserId,
                 Success = success,

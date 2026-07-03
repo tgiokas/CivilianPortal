@@ -59,9 +59,13 @@ public class AuthenticationController : ControllerBase
 
         // Client (workstation) IP: resolved from RemoteIpAddress. UseForwardedHeaders() runs early
         // in the pipeline, so this already reflects the real client behind the reverse proxy.
-        // The server (machine) name is filled in by the service from the host itself.
+        // Machine name: self-reported by the caller via the X-Machine-Name header (untrusted,
+        // optional). When absent the service falls back to the server host name.
         var auditContext = new AuthAuditContext(
-            HttpContext.Connection.RemoteIpAddress?.ToString());
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            Request.Headers.TryGetValue("X-Machine-Name", out var machineName)
+                ? machineName.ToString()
+                : null);
 
         var result = await _authenticationService.OAuth2CallbackAsync(code, auditContext);
         
