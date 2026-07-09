@@ -23,6 +23,11 @@ public class AuthenticationController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
+        if (_configuration["ASPNETCORE_ENVIRONMENT"] == "Production")
+        {
+            return Forbid("This endpoint is not allowed in the production environment.");
+        }
+
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
         {
             return BadRequest(Result<string>.Fail("Username and password are required."));
@@ -56,8 +61,14 @@ public class AuthenticationController : ControllerBase
 
         var frontendRedirectUrl = _configuration["FRONTEND_REDIRECTURI"]
             ?? "http://localhost:3000";
+       
+        var auditContext = new AuthAuditContext(
+            HttpContext.Connection.RemoteIpAddress?.ToString(),
+            Request.Headers.TryGetValue("X-Machine-Name", out var machineName)
+                ? machineName.ToString()
+                : null);
 
-        var result = await _authenticationService.OAuth2CallbackAsync(code);
+        var result = await _authenticationService.OAuth2CallbackAsync(code, auditContext);
         
         if (!string.IsNullOrEmpty(result?.Data?.AccessToken) &&
             !string.IsNullOrEmpty(result?.Data?.RefreshToken))

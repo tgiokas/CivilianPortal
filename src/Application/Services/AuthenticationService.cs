@@ -12,18 +12,22 @@ namespace CitizenPortal.Application.Services;
 public class AuthenticationService : IAuthenticationService
 {
     private readonly IKeycloakApiClient _keycloakClientAuth;
-    private readonly ICitizenUserRepository _citizenUserRepo;    
+    private readonly ICitizenUserRepository _citizenUserRepo;
+    private readonly IAuthenticationAuditLogRepository _auditRepo;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<AuthenticationService> _logger;
+    private static readonly string ServerHostName = ResolveServerHostName();
 
     public AuthenticationService(
         IKeycloakApiClient keycloakClientAuth,
-        ICitizenUserRepository citizenUserRepo,        
+        ICitizenUserRepository citizenUserRepo,
+        IAuthenticationAuditLogRepository auditRepo,
         IErrorCatalog errors,
         ILogger<AuthenticationService> logger)
     {
         _keycloakClientAuth = keycloakClientAuth;
-        _citizenUserRepo = citizenUserRepo;        
+        _citizenUserRepo = citizenUserRepo;
+        _auditRepo = auditRepo;
         _errors = errors;
         _logger = logger;
     }
@@ -39,7 +43,8 @@ public class AuthenticationService : IAuthenticationService
         }
 
         // Parse JWT claims and auto-provision citizen in Citizen-Portal DB
-        return await ProcessTokenAndProvisionCitizen(tokenResponse);
+        var jwtToken = new JwtSecurityTokenHandler().ReadJwtToken(tokenResponse.Access_token);
+        return await ProcessTokenAndProvisionCitizen(tokenResponse, jwtToken);
     }
 
     /// OAuth2 callback handler
@@ -48,18 +53,46 @@ public class AuthenticationService : IAuthenticationService
     /// 3. Check if citizen exists in our DB
     /// 4. If not -> auto-provision (create CitizenUser)
     /// 5. Return tokens + citizen info
-    public async Task<Result<LoginResponseDto>> OAuth2CallbackAsync(string code)
+    public async Task<Result<LoginResponseDto>> OAuth2CallbackAsync(string code, AuthAuditContext auditContext)
     {
         // 1. Exchange code for tokens
         var tokenResponse = await _keycloakClientAuth.GetAccessTokenByCodeAsync(code);
-        
+
         if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
         {
+            // No token -> we cannot know the provider or the user, but the call still happened.
+            await WriteAuditAsync(auditContext, AuthenticationAuditLog.ProviderUnknown,
+                username: null, keycloakUserId: null,
+                success: false, failureReason: "Token exchange with Keycloak failed");
+
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
         }
 
-        // 2. Parse claims and provision citizen in Citizen-Portal DB
-        return await ProcessTokenAndProvisionCitizen(tokenResponse);
+        // 2. Parse the access token once: reused for both auditing and citizen provisioning.
+        var jwtToken = new JwtSecurityTokenHandler().ReadJwtToken(tokenResponse.Access_token);
+
+        // Debug: dump every claim type/value pair present on the token       
+        _logger.LogDebug("OAuth2 callback JWT claims: {Claims}",
+            string.Join(", ", jwtToken.Claims.Select(c => $"{c.Type}={c.Value}")));
+
+        var provider = MapProvider(jwtToken.Claims.FirstOrDefault(c => c.Type == "gsis_provider")?.Value);
+        var username = jwtToken.Claims.FirstOrDefault(c => c.Type == "preferred_username")?.Value
+                       ?? jwtToken.Claims.FirstOrDefault(c => c.Type == "taxid" || c.Type == "afm")?.Value
+                       ?? jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
+        Guid? keycloakUserId =
+            Guid.TryParse(jwtToken.Claims.FirstOrDefault(c => c.Type == "sub")?.Value, out var parsedId)
+                ? parsedId
+                : null;
+
+        // 3. Provision citizen in Citizen-Portal DB
+        var result = await ProcessTokenAndProvisionCitizen(tokenResponse, jwtToken);
+
+        // 4. Audit the outcome (success or failure) of this authentication call.
+        await WriteAuditAsync(auditContext, provider, username, keycloakUserId,
+            success: result.Success,
+            failureReason: result.Success ? null : (result.Message ?? "Authentication failed"));
+
+        return result;
     }
 
     public async Task<Result<RefreshResponseDto>> RefreshTokenAsync(string refreshToken)
@@ -89,19 +122,24 @@ public class AuthenticationService : IAuthenticationService
         return Result<bool>.Ok(true, message: "Logout successful");
     }
 
-    /// Private: shared logic for JWT parsing + citizen auto-provisioning
-    /// Used by both LoginAsync (password grant) and OAuth2CallbackAsync (code grant)
-    private async Task<Result<LoginResponseDto>> ProcessTokenAndProvisionCitizen(TokenDto tokenResponse)
+    /// Private: shared logic for reading citizen claims + auto-provisioning.    
+    private async Task<Result<LoginResponseDto>> ProcessTokenAndProvisionCitizen(TokenDto tokenResponse, JwtSecurityToken jwtToken)
     {
-        var handler = new JwtSecurityTokenHandler();
-        var jwtToken = handler.ReadJwtToken(tokenResponse.Access_token);
-
         var keycloakUserId = jwtToken.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
         var email = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value;
         var firstName = jwtToken.Claims.FirstOrDefault(c => c.Type == "given_name")?.Value;
         var lastName = jwtToken.Claims.FirstOrDefault(c => c.Type == "family_name")?.Value;
         var taxisNetId = jwtToken.Claims.FirstOrDefault(c => c.Type == "taxid" || c.Type == "afm")?.Value;
         var fatherName = jwtToken.Claims.FirstOrDefault(c => c.Type == "fathername")?.Value;
+
+        _logger.LogDebug(
+            "Citizen provisioning claims parsed: sub={Sub}, email={Email}, given_name={FirstName}, family_name={LastName}, taxid/afm={TaxisNetId}, fathername={FatherName}",
+            keycloakUserId ?? "<missing>",
+            email ?? "<missing>",
+            firstName ?? "<missing>",
+            lastName ?? "<missing>",
+            taxisNetId ?? "<missing>",
+            fatherName ?? "<missing>");
 
         if (string.IsNullOrWhiteSpace(keycloakUserId) || string.IsNullOrWhiteSpace(email))
         {
@@ -197,5 +235,70 @@ public class AuthenticationService : IAuthenticationService
                 VatId = dbCitizen.VatId
             }
         });
+    }
+
+    private static string ResolveServerHostName()
+    {
+        try
+        {
+            return Environment.MachineName;
+        }
+        catch
+        {
+            return "Unknown";
+        }
+    }
+
+    private static string ResolveMachineName(string? reportedMachineName)
+    {
+        if (string.IsNullOrWhiteSpace(reportedMachineName))
+            return ServerHostName;
+
+        var trimmed = reportedMachineName.Trim();
+        return trimmed.Length <= 256 ? trimmed : trimmed[..256];
+    }
+
+    /// Classify the Keycloak broker alias (identity_provider claim) into the audited authentication service.
+    private static string MapProvider(string? idpAlias)
+    {
+        if (string.IsNullOrWhiteSpace(idpAlias))
+            return AuthenticationAuditLog.ProviderUnknown;
+
+        if (idpAlias.Contains("taxis", StringComparison.OrdinalIgnoreCase))
+            return AuthenticationAuditLog.ProviderTaxisNet;
+
+        if (idpAlias.Contains("gov", StringComparison.OrdinalIgnoreCase))
+            return AuthenticationAuditLog.ProviderPublicAdministration;
+
+        return AuthenticationAuditLog.ProviderUnknown;
+    }
+
+    /// Persist an audit record for an authentication call.
+    private async Task WriteAuditAsync(
+        AuthAuditContext auditContext,
+        string provider,
+        string? username,
+        Guid? keycloakUserId,
+        bool success,
+        string? failureReason)
+    {
+        try
+        {
+            await _auditRepo.AddAsync(new AuthenticationAuditLog
+            {
+                Provider = provider,
+                Reason = AuthenticationAuditLog.DefaultReason,
+                IpAddress = auditContext.IpAddress,
+                MachineName = ResolveMachineName(auditContext.MachineName),
+                Username = username,
+                KeycloakUserId = keycloakUserId,
+                Success = success,
+                FailureReason = failureReason
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to write authentication audit log entry");
+        }
     }
 }

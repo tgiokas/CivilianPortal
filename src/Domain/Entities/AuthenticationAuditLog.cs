@@ -1,0 +1,24 @@
+namespace CitizenPortal.Domain.Entities;
+
+/// Audit trail of every call to the GSIS authentication services 
+public class AuthenticationAuditLog
+{
+    /// Fixed reason for every authentication call in this portal.
+    public const string DefaultReason = "Αυθεντικοποίηση χρήστη για υποβολή αίτησης";
+
+    /// Canonical values stored in Provider
+    public const string ProviderTaxisNet = "TaxisNet";                       // TaxisNet
+    public const string ProviderPublicAdministration = "PublicAdministration"; // Κωδικοί Δημόσιας Διοίκησης
+    public const string ProviderUnknown = "Unknown";                         // could not be determined
+
+    public long Id { get; set; }                                 // Μοναδικός αύξων αριθμός κλήσης
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;   // Ημερομηνία/ώρα της κλήσης (UTC)
+    public string Provider { get; set; } = ProviderUnknown;      // Υπηρεσία αυθεντικοποίησης
+    public string Reason { get; set; } = DefaultReason;          // Αιτία κλήσης
+    public string? IpAddress { get; set; }                       // IP σταθμού εργασίας 
+    public string? Username { get; set; }                        // username φυσικού χρήστη
+    public string? MachineName { get; set; }                     // machine name, όπου διαθέσιμο
+    public bool Success { get; set; }                            // Αποτέλεσμα: Επιτυχής / Αποτυχημένη
+    public string? FailureReason { get; set; }                   // λεπτομέρεια αποτυχίας 
+    public Guid? KeycloakUserId { get; set; }                    // συσχέτιση, όπου διαθέσιμο
+}
