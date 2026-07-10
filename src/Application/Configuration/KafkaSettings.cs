@@ -23,9 +23,10 @@ public class KafkaSettings
     public int SocketTimeoutMs { get; set; } = 60000;
 
 
-    // Producer     
+    // Producer
     public string SubmittedTopic { get; set; } = string.Empty;
     public string NotificationTopic { get; set; } = string.Empty;
+    public string UploadRequestTopic { get; set; } = string.Empty;
 
     // Wait between retries to avoid hammering the broker
     public int RetryBackoffMs { get; set; } = 100;
@@ -39,6 +40,7 @@ public class KafkaSettings
 
     // Consumer
     public string ProtocolTopic { get; set; } = string.Empty;
+    public string UploadResultTopic { get; set; } = string.Empty;
     public string GroupId { get; set; } = string.Empty;
 
     // Offset reset strategy
@@ -73,6 +75,8 @@ public class KafkaSettings
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_SUBMITTED_TOPIC is not set."),
             NotificationTopic = configuration["PORTAL_KAFKA_NOTIFICATION_TOPIC"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_NOTIFICATION_TOPIC is not set."),
+            UploadRequestTopic = configuration["PORTAL_KAFKA_UPLOAD_REQUEST_TOPIC"]
+                ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_UPLOAD_REQUEST_TOPIC is not set."),
             RetryBackoffMs = ParseInt(configuration, "PORTAL_KAFKA_RETRY_BACKOFF_MS"),
             RequestTimeoutMs = ParseInt(configuration, "PORTAL_KAFKA_REQUEST_TIMEOUT_MS"),
             MessageTimeoutMs = ParseInt(configuration, "PORTAL_KAFKA_MESSAGE_TIMEOUT_MS"),
@@ -80,6 +84,8 @@ public class KafkaSettings
             // Consumer settings
             ProtocolTopic = configuration["PORTAL_KAFKA_PROTOCOL_TOPIC"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_PROTOCOL_TOPIC is not set."),
+            UploadResultTopic = configuration["PORTAL_KAFKA_UPLOAD_RESULT_TOPIC"]
+                ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_UPLOAD_RESULT_TOPIC is not set."),
             GroupId = configuration["PORTAL_KAFKA_CONSUMER_GROUP"]
                 ?? throw new ArgumentNullException(nameof(configuration), "PORTAL_KAFKA_CONSUMER_GROUP is not set."),
             AutoOffsetReset = Enum.TryParse(configuration["PORTAL_KAFKA_AUTO_OFFSET_RESET"], true, out AutoOffsetReset offset)

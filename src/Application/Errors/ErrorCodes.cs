@@ -32,5 +32,11 @@ public static class ErrorCodes
         public const string TooManyAttachments = "PORTAL-025";
         public const string TotalAttachmentSizeExceeded = "PORTAL-026";
         public const string ApplicationAlreadyProtocoled = "PORTAL-027";
+        public const string ArchiumFolderNotFound = "PORTAL-028";
+        public const string UnsupportedArchiveFileType = "PORTAL-029";
+        public const string ArchiveFileTooLarge = "PORTAL-030";
+        public const string UploadJobNotFound = "PORTAL-031";
+        public const string ArchiumServiceUnavailable = "PORTAL-032";
+        public const string NoFilesProvided = "PORTAL-033";
     }
 }

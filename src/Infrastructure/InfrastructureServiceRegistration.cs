@@ -35,6 +35,9 @@ public static class InfrastructureServiceRegistration
         var storageClientSettings = StorageClientSettings.BindFromConfiguration(configuration);
         services.AddSingleton(Options.Create(storageClientSettings));
 
+        var archiumClientSettings = ArchiumClientSettings.BindFromConfiguration(configuration);
+        services.AddSingleton(Options.Create(archiumClientSettings));
+
         // === Database ===
         var connectionString = portalSettings.DbConnection;
         var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
@@ -56,6 +59,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IAuthenticationAuditLogRepository, AuthenticationAuditLogRepository>();
+        services.AddScoped<IUploadJobRepository, UploadJobRepository>();
 
         // === Application PDF generation ===
         // PdfSharpCore uses a process-wide static font resolver. The resolver
@@ -63,13 +67,18 @@ public static class InfrastructureServiceRegistration
         EmbeddedFontResolver.Register();
         services.AddSingleton<IApplicationPdfGenerator, PdfSharpApplicationPdfGenerator>();
 
+        // === Antivirus (External-Portal API, section 3.9) ===
+        // No real ClamAV integration yet — pass-through until one is wired in.
+        services.AddSingleton<IAntivirusScanner, NoOpAntivirusScanner>();
+
         // === Kafka ===
         services.AddSingleton<IMessagePublisher, KafkaPublisher>();
         services.AddSingleton<IEmailSender, KafkaEmailSender>();
 
         // === Background Services ===
-        services.AddHostedService<OutboxProcessor>();           // Publishes outbox -> Kafka
-        services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS -> updates status
+        services.AddHostedService<OutboxProcessor>();                        // Publishes outbox -> Kafka
+        services.AddHostedService<ProtocolAssignedConsumer>();               // Consumes DMS -> updates application status
+        services.AddHostedService<ExternalPortalUploadResultConsumer>();     // Consumes ARCHIUM upload.result -> updates UploadJob
 
         // === HTTP Clients ===
         var keycloakBaseUrl = keycloakSettings.BaseUrl.EndsWith('/')
@@ -84,7 +93,12 @@ public static class InfrastructureServiceRegistration
         {
             client.BaseAddress = new Uri(storageClientSettings.BaseUrl);
         });
-        
+
+        services.AddHttpClient<IArchiumApiClient, ArchiumApiClient>(client =>
+        {
+            client.BaseAddress = new Uri(archiumClientSettings.BaseUrl);
+        });
+
         // Add Error Catalog Path
         var path = Path.Combine(Environment.CurrentDirectory, "errors.json");
         if (!File.Exists(path))

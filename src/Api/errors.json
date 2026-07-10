@@ -27,6 +27,12 @@
     { "code": "PORTAL-024", "message": "Application body is required." },
     { "code": "PORTAL-025", "message": "Too many attachments." },
     { "code": "PORTAL-026", "message": "Total attachment size exceeds the allowed limit." },
-    { "code": "PORTAL-027", "message": "Application Already Protocoled"}
+    { "code": "PORTAL-027", "message": "Application Already Protocoled"},
+    { "code": "PORTAL-028", "message": "ARCHIUM folder not found." },
+    { "code": "PORTAL-029", "message": "Unsupported file type for archiving." },
+    { "code": "PORTAL-030", "message": "File exceeds maximum allowed size." },
+    { "code": "PORTAL-031", "message": "Upload job not found." },
+    { "code": "PORTAL-032", "message": "ARCHIUM service is unavailable." },
+    { "code": "PORTAL-033", "message": "No files were provided." }
   ]
 }

@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public required DbSet<ApplicationDocument> ApplicationDocuments { get; set; }
     public required DbSet<OutboxMessage> OutboxMessages { get; set; }
     public required DbSet<AuthenticationAuditLog> AuthenticationAuditLogs { get; set; }
+    public required DbSet<UploadJob> UploadJobs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -107,6 +108,24 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             entity.HasIndex(a => a.CreatedAt);
             entity.HasIndex(a => a.Provider);
             entity.HasIndex(a => a.Success);
+        });
+
+        // UploadJob
+        modelBuilder.Entity<UploadJob>(entity =>
+        {
+            entity.ToTable("UploadJobs");
+            entity.HasKey(j => j.Id);
+            entity.Property(j => j.JobId).IsRequired();
+            entity.Property(j => j.CallerSystemId).IsRequired().HasMaxLength(100);
+            entity.Property(j => j.Status).HasConversion<int>().HasDefaultValue(UploadJobStatus.Pending);
+            entity.Property(j => j.Subject).HasMaxLength(500);
+            entity.Property(j => j.ProtocolNumber).HasMaxLength(50);
+            entity.Property(j => j.ProtocolYear).HasMaxLength(4);
+            entity.Property(j => j.ErrorCode).HasMaxLength(50);
+            entity.Property(j => j.ErrorMessage).HasMaxLength(1000);
+
+            entity.HasIndex(j => j.JobId).IsUnique();
+            entity.HasIndex(j => j.Status);
         });
     }
 
