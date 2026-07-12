@@ -2,9 +2,8 @@ using CitizenPortal.Application.Dtos;
 
 namespace CitizenPortal.Application.Interfaces;
 
-/// Outbound calls to the real, separately-hosted ARCHIUM External-Portal API
-/// (spec section 3) for folder browsing/creation and file retrieval.
-/// Upload/archive (3.3/3.5) go through Kafka instead — see IExternalPortalService.
+/// Outbound calls to the real, separately-hosted ARCHIUM External-Portal API (spec section 3):
+/// folder browsing/creation, file retrieval, and synchronous upload/archive with protocol assignment.
 public interface IArchiumApiClient
 {
     Task<FolderListResult?> GetFoldersAsync(long? parentId, CancellationToken cancellationToken = default);
@@ -14,4 +13,13 @@ public interface IArchiumApiClient
         CancellationToken cancellationToken = default);
 
     Task<RetrievedFileResult?> GetFileAsync(long fileId, string callerSystemId, CancellationToken cancellationToken = default);
+
+    Task<UploadFileResult?> UploadFileAsync(
+        string callerSystemId, bool digitalSignatureValidation, string subject,
+        string fileName, byte[] file, List<UploadedFilePayload> attachments,
+        CancellationToken cancellationToken = default);
+
+    Task<ArchiveFileResult?> ArchiveFileAsync(
+        long folderId, List<UploadedFilePayload> files, string? protocolSubject, bool protocolRequired,
+        CancellationToken cancellationToken = default);
 }

@@ -7,9 +7,8 @@ using CitizenPortal.Application.Interfaces;
 namespace CitizenPortal.Api.Controllers;
 
 /// Implements the ARCHIUM External-Portal API (interoperability spec, section 3) for
-/// the external ΟΠΣ caller: folder browsing/creation and file retrieval proxy to the
-/// real ARCHIUM instance; upload/archive are accepted and completed asynchronously
-/// (see IExternalPortalService / UploadJob).
+/// the external ΟΠΣ caller: folder browsing/creation, upload/archive, and file retrieval
+/// all proxy synchronously to the real ARCHIUM instance (see IExternalPortalService).
 [ApiController]
 [Authorize]
 [Route("api/v1")]
@@ -73,7 +72,7 @@ public class ExternalPortalController : ControllerBase
         if (!result.Success)
             return BadRequest(result);
 
-        return Accepted(result.Data);
+        return StatusCode(StatusCodes.Status201Created, result.Data);
     }
 
     [HttpPost("files/upload")]
@@ -84,24 +83,13 @@ public class ExternalPortalController : ControllerBase
         if (!result.Success)
             return BadRequest(result);
 
-        return Accepted(result.Data);
+        return Ok(result.Data);
     }
 
     [HttpGet("files/{fileId:long}")]
     public async Task<IActionResult> GetFile(long fileId, [FromQuery] string? callerSystemId, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.RetrieveFileAsync(fileId, cancellationToken);
-
-        if (!result.Success)
-            return NotFound(result);
-
-        return Ok(result.Data);
-    }
-
-    [HttpGet("external-portal/jobs/{jobId:guid}")]
-    public async Task<IActionResult> GetJobStatus(Guid jobId)
-    {
-        var result = await _externalPortalService.GetJobStatusAsync(jobId);
 
         if (!result.Success)
             return NotFound(result);

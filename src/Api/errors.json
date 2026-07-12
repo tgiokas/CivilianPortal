@@ -31,7 +31,6 @@
     { "code": "PORTAL-028", "message": "ARCHIUM folder not found." },
     { "code": "PORTAL-029", "message": "Unsupported file type for archiving." },
     { "code": "PORTAL-030", "message": "File exceeds maximum allowed size." },
-    { "code": "PORTAL-031", "message": "Upload job not found." },
     { "code": "PORTAL-032", "message": "ARCHIUM service is unavailable." },
     { "code": "PORTAL-033", "message": "No files were provided." }
   ]

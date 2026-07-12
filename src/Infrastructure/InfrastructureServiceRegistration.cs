@@ -59,7 +59,6 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IOutboxRepository, OutboxRepository>();
         services.AddScoped<IAuthenticationAuditLogRepository, AuthenticationAuditLogRepository>();
-        services.AddScoped<IUploadJobRepository, UploadJobRepository>();
 
         // === Application PDF generation ===
         // PdfSharpCore uses a process-wide static font resolver. The resolver
@@ -76,9 +75,8 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<IEmailSender, KafkaEmailSender>();
 
         // === Background Services ===
-        services.AddHostedService<OutboxProcessor>();                        // Publishes outbox -> Kafka
-        services.AddHostedService<ProtocolAssignedConsumer>();               // Consumes DMS -> updates application status
-        services.AddHostedService<ExternalPortalUploadResultConsumer>();     // Consumes ARCHIUM upload.result -> updates UploadJob
+        services.AddHostedService<OutboxProcessor>();           // Publishes outbox -> Kafka
+        services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS -> updates application status
 
         // === HTTP Clients ===
         var keycloakBaseUrl = keycloakSettings.BaseUrl.EndsWith('/')

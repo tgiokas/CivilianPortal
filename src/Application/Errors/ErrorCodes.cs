@@ -35,7 +35,6 @@ public static class ErrorCodes
         public const string ArchiumFolderNotFound = "PORTAL-028";
         public const string UnsupportedArchiveFileType = "PORTAL-029";
         public const string ArchiveFileTooLarge = "PORTAL-030";
-        public const string UploadJobNotFound = "PORTAL-031";
         public const string ArchiumServiceUnavailable = "PORTAL-032";
         public const string NoFilesProvided = "PORTAL-033";
     }
