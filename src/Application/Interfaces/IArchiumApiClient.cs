@@ -19,7 +19,7 @@ public interface IArchiumApiClient
     /// protocol lookup call (see GetProtocolForFileAsync) rather than a combined response.
     Task<UploadedFileRef?> UploadSingleFileAsync(
         string callerSystemId, bool digitalSignatureValidation, string fileName, byte[] file,
-        string? subject = null, CancellationToken cancellationToken = default);
+        string? documentSubject = null, CancellationToken cancellationToken = default);
 
     /// PLACEHOLDER — ARCHIUM's real contract for looking up the protocol number assigned to an
     /// already-uploaded fileId is not finalized yet. Guessing GET /api/v1/files/{fileId}/protocol

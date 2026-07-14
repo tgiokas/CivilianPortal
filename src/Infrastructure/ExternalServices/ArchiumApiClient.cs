@@ -97,14 +97,14 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
 
     public async Task<UploadedFileRef?> UploadSingleFileAsync(
         string callerSystemId, bool digitalSignatureValidation, string fileName, byte[] file,
-        string? subject = null, CancellationToken cancellationToken = default)
+        string? documentSubject = null, CancellationToken cancellationToken = default)
     {
         var body = new UploadDocumentRequest
         {
             CallerSystemId = callerSystemId,
             DigitalSignatureValidation = digitalSignatureValidation,
             FileName = fileName,
-            Subject = subject,
+            DocumentSubject = documentSubject,
             File = Convert.ToBase64String(file)
         };
 
