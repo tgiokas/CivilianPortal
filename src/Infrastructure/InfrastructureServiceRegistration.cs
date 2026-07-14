@@ -66,17 +66,13 @@ public static class InfrastructureServiceRegistration
         EmbeddedFontResolver.Register();
         services.AddSingleton<IApplicationPdfGenerator, PdfSharpApplicationPdfGenerator>();
 
-        // === Antivirus (External-Portal API, section 3.9) ===
-        // No real ClamAV integration yet — pass-through until one is wired in.
-        services.AddSingleton<IAntivirusScanner, NoOpAntivirusScanner>();
-
         // === Kafka ===
         services.AddSingleton<IMessagePublisher, KafkaPublisher>();
         services.AddSingleton<IEmailSender, KafkaEmailSender>();
 
         // === Background Services ===
         services.AddHostedService<OutboxProcessor>();           // Publishes outbox -> Kafka
-        services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS -> updates application status
+        services.AddHostedService<ProtocolAssignedConsumer>();  // Consumes DMS -> updates status
 
         // === HTTP Clients ===
         var keycloakBaseUrl = keycloakSettings.BaseUrl.EndsWith('/')

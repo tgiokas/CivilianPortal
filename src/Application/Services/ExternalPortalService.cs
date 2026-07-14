@@ -16,21 +16,18 @@ public class ExternalPortalService : IExternalPortalService
         ".pdf", ".docx", ".doc", ".xlsx", ".xls"
     };
 
-    private readonly IArchiumApiClient _archiumClient;
-    private readonly IAntivirusScanner _antivirusScanner;
+    private readonly IArchiumApiClient _archiumClient;  
     private readonly ArchiumClientSettings _archiumSettings;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<ExternalPortalService> _logger;
 
     public ExternalPortalService(
-        IArchiumApiClient archiumClient,
-        IAntivirusScanner antivirusScanner,
+        IArchiumApiClient archiumClient,      
         IOptions<ArchiumClientSettings> archiumOptions,
         IErrorCatalog errors,
         ILogger<ExternalPortalService> logger)
     {
-        _archiumClient = archiumClient;
-        _antivirusScanner = antivirusScanner;
+        _archiumClient = archiumClient;     
         _archiumSettings = archiumOptions.Value;
         _errors = errors;
         _logger = logger;
@@ -102,8 +99,7 @@ public class ExternalPortalService : IExternalPortalService
         }
 
         var result = await _archiumClient.UploadFileAsync(
-            request.CallerSystemId, request.DigitalSignatureValidation, request.Metadata.Subject,
-            fileName, fileBytes, attachments, cancellationToken);
+            request.CallerSystemId, request.DigitalSignatureValidation, fileName, fileBytes, attachments, cancellationToken);
 
         if (result is null)
             return _errors.Fail<UploadFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
@@ -129,7 +125,7 @@ public class ExternalPortalService : IExternalPortalService
         }
 
         var result = await _archiumClient.ArchiveFileAsync(
-            request.FolderId, request.Files, request.ProtocolSubject, request.ProtocolRequired, cancellationToken);
+            request.FolderId, request.Files, request.ProtocolRequired, cancellationToken);
 
         if (result is null)
             return _errors.Fail<ArchiveFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
@@ -159,9 +155,9 @@ public class ExternalPortalService : IExternalPortalService
         if (!AllowedExtensions.Contains(Path.GetExtension(fileName)))
             return (false, ErrorCodes.PORTAL.UnsupportedArchiveFileType);
 
-        var isClean = await _antivirusScanner.IsCleanAsync(content, fileName, cancellationToken);
-        if (!isClean)
-            return (false, ErrorCodes.PORTAL.InvalidFileType);
+        //var isClean = await _antivirusScanner.IsCleanAsync(content, fileName, cancellationToken);
+        //if (!isClean)
+        //    return (false, ErrorCodes.PORTAL.InvalidFileType);
 
         return (true, null);
     }

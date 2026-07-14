@@ -1,6 +1,5 @@
 namespace CitizenPortal.Application.Dtos;
 
-/// Synchronous success response for POST /api/v1/files/upload (spec 3.3.1).
 public class UploadFileResult
 {
     public long FileId { get; set; }

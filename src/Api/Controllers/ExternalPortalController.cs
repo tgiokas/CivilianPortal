@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using CitizenPortal.Application.Dtos;
@@ -6,11 +5,7 @@ using CitizenPortal.Application.Interfaces;
 
 namespace CitizenPortal.Api.Controllers;
 
-/// Implements the ARCHIUM External-Portal API (interoperability spec, section 3) for
-/// the external ΟΠΣ caller: folder browsing/creation, upload/archive, and file retrieval
-/// all proxy synchronously to the real ARCHIUM instance (see IExternalPortalService).
 [ApiController]
-[Authorize]
 [Route("api/v1")]
 public class ExternalPortalController : ControllerBase
 {
@@ -63,8 +58,7 @@ public class ExternalPortalController : ControllerBase
         {
             FolderId = form.ArchiumFolderId,
             Files = files,
-            ProtocolSubject = form.Protocol?.Subject,
-            ProtocolRequired = form.Protocol?.Required ?? false
+            ProtocolRequired = form.ProtocolRequired
         };
 
         var result = await _externalPortalService.SubmitArchiveAsync(request, cancellationToken);

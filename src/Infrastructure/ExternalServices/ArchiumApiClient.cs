@@ -8,12 +8,10 @@ using CitizenPortal.Infrastructure.ApiClients;
 
 namespace CitizenPortal.Infrastructure.ExternalServices;
 
-/// Outbound HTTP client for ARCHIUM's External-Portal API (spec section 3).
-/// No Authorization header is attached — client-credentials token acquisition
-/// is out of scope for this pass.
+/// Outbound HTTP client for ARCHIUM's Backend API.
 public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
@@ -44,7 +42,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<FolderListResult>(json, JsonOptions);
+        return JsonSerializer.Deserialize<FolderListResult>(json, _jsonOptions);
     }
 
     public async Task<CreateFolderResult?> CreateFolderAsync(
@@ -75,7 +73,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<CreateFolderResult>(json, JsonOptions);
+        return JsonSerializer.Deserialize<CreateFolderResult>(json, _jsonOptions);
     }
 
     public async Task<RetrievedFileResult?> GetFileAsync(
@@ -94,19 +92,18 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<RetrievedFileResult>(json, JsonOptions);
+        return JsonSerializer.Deserialize<RetrievedFileResult>(json, _jsonOptions);
     }
 
     public async Task<UploadFileResult?> UploadFileAsync(
-        string callerSystemId, bool digitalSignatureValidation, string subject,
+        string callerSystemId, bool digitalSignatureValidation, 
         string fileName, byte[] file, List<UploadedFilePayload> attachments,
         CancellationToken cancellationToken = default)
     {
         var body = new UploadFileRequest
         {
             CallerSystemId = callerSystemId,
-            DigitalSignatureValidation = digitalSignatureValidation,
-            Metadata = new UploadFileMetadata { Subject = subject },
+            DigitalSignatureValidation = digitalSignatureValidation,            
             FileName = fileName,
             File = Convert.ToBase64String(file),
             Attachments = attachments.Select(a => new UploadFileAttachment
@@ -118,7 +115,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
 
         var request = new HttpRequestMessage(HttpMethod.Post, FilesEndpoint + "/upload")
         {
-            Content = JsonContent.Create(body, options: JsonOptions)
+            Content = JsonContent.Create(body, options: _jsonOptions)
         };
 
         var response = await SendRequestAsync(request, cancellationToken);
@@ -131,11 +128,11 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<UploadFileResult>(json, JsonOptions);
+        return JsonSerializer.Deserialize<UploadFileResult>(json, _jsonOptions);
     }
 
     public async Task<ArchiveFileResult?> ArchiveFileAsync(
-        long folderId, List<UploadedFilePayload> files, string? protocolSubject, bool protocolRequired,
+        long folderId, List<UploadedFilePayload> files, bool protocolRequired,
         CancellationToken cancellationToken = default)
     {
         using var content = new MultipartFormDataContent
@@ -143,10 +140,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             { new StringContent(folderId.ToString()), "archiumFolderId" },
             { new StringContent(protocolRequired.ToString()), "protocol.required" }
         };
-
-        if (!string.IsNullOrWhiteSpace(protocolSubject))
-            content.Add(new StringContent(protocolSubject), "protocol.subject");
-
+       
         foreach (var file in files)
         {
             var fileContent = new ByteArrayContent(file.Content);
@@ -170,6 +164,6 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<ArchiveFileResult>(json, JsonOptions);
+        return JsonSerializer.Deserialize<ArchiveFileResult>(json, _jsonOptions);
     }
 }

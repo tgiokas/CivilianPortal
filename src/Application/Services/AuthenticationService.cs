@@ -39,7 +39,14 @@ public class AuthenticationService : IAuthenticationService
 
         if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
         {
+            var keycloakUser = await _keycloakClientAuth.GetUserByNameAsync(request.Username);
+            if (keycloakUser != null)
+        {
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
+            }
+
+            var user = await _keycloakClientAuth.CreateUserAsync(request.Username, request.Password);
+            tokenResponse = await _keycloakClientAuth.GetUserAccessTokenAsync(request.Username, request.Password);
         }
 
         // Parse JWT claims and auto-provision citizen in Citizen-Portal DB

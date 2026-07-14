@@ -8,4 +8,6 @@ public interface IKeycloakApiClient
     Task<TokenDto?> GetUserAccessTokenAsync(string username, string password);
     Task<TokenDto?> RefreshTokenAsync(string refreshToken);
     Task<bool> LogoutAsync(string refreshToken);
+    Task<KeycloakUser?> CreateUserAsync(string username, string password);
+    Task<KeycloakUser?> GetUserByNameAsync(string username);
 }

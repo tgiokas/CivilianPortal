@@ -15,11 +15,11 @@ public interface IArchiumApiClient
     Task<RetrievedFileResult?> GetFileAsync(long fileId, string callerSystemId, CancellationToken cancellationToken = default);
 
     Task<UploadFileResult?> UploadFileAsync(
-        string callerSystemId, bool digitalSignatureValidation, string subject,
+        string callerSystemId, bool digitalSignatureValidation,
         string fileName, byte[] file, List<UploadedFilePayload> attachments,
         CancellationToken cancellationToken = default);
 
     Task<ArchiveFileResult?> ArchiveFileAsync(
-        long folderId, List<UploadedFilePayload> files, string? protocolSubject, bool protocolRequired,
+        long folderId, List<UploadedFilePayload> files, bool protocolRequired,
         CancellationToken cancellationToken = default);
 }
