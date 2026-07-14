@@ -16,18 +16,21 @@ public class ExternalPortalService : IExternalPortalService
         ".pdf", ".docx", ".doc", ".xlsx", ".xls"
     };
 
-    private readonly IArchiumApiClient _archiumClient;  
+    private readonly IArchiumApiClient _archiumClient;
+    private readonly IAntivirusScanner _antivirusScanner;
     private readonly ArchiumClientSettings _archiumSettings;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<ExternalPortalService> _logger;
 
     public ExternalPortalService(
-        IArchiumApiClient archiumClient,      
+        IArchiumApiClient archiumClient,
+        IAntivirusScanner antivirusScanner,
         IOptions<ArchiumClientSettings> archiumOptions,
         IErrorCatalog errors,
         ILogger<ExternalPortalService> logger)
     {
-        _archiumClient = archiumClient;     
+        _archiumClient = archiumClient;
+        _antivirusScanner = antivirusScanner;
         _archiumSettings = archiumOptions.Value;
         _errors = errors;
         _logger = logger;
@@ -155,9 +158,9 @@ public class ExternalPortalService : IExternalPortalService
         if (!AllowedExtensions.Contains(Path.GetExtension(fileName)))
             return (false, ErrorCodes.PORTAL.UnsupportedArchiveFileType);
 
-        //var isClean = await _antivirusScanner.IsCleanAsync(content, fileName, cancellationToken);
-        //if (!isClean)
-        //    return (false, ErrorCodes.PORTAL.InvalidFileType);
+        var isClean = await _antivirusScanner.IsCleanAsync(content, fileName, cancellationToken);
+        if (!isClean)
+            return (false, ErrorCodes.PORTAL.InvalidFileType);
 
         return (true, null);
     }
