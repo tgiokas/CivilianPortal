@@ -1,6 +1,6 @@
 namespace CitizenPortal.Application.Dtos;
 
-/// A single folder node as returned by ARCHIUM's External-Portal API (spec 3.4.1.2).
+/// A single folder node as returned by ARCHIUM BackEnd API
 public class ArchiumFolderDto
 {
     public long ArchiumFolderId { get; set; }

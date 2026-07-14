@@ -2,9 +2,8 @@ using CitizenPortal.Application.Dtos;
 
 namespace CitizenPortal.Application.Interfaces;
 
-/// Implements the ARCHIUM External-Portal API surface (interoperability spec, section 3)
-/// on behalf of CivilianPortal. Folder browsing/creation, upload/archive, and retrieval
-/// all proxy synchronously through to the real ARCHIUM instance.
+/// Implements the ARCHIUM BackEnd API
+/// Folder browsing/creation, upload/archive, and retrieval
 public interface IExternalPortalService
 {
     Task<Result<FolderListResult>> ListFoldersAsync(long? parentId, CancellationToken cancellationToken = default);

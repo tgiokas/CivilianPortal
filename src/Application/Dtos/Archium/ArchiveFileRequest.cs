@@ -9,7 +9,6 @@ public class ArchiveFileFormRequest
     public bool ProtocolRequired { get; set; }
 }
 
-/// Service-level payload — files already read into memory, ready to serialize onto the Kafka event.
 public class ArchiveFileRequest
 {
     public long FolderId { get; set; }

@@ -1,6 +1,6 @@
 namespace CitizenPortal.Application.Dtos;
 
-/// Result of GET /api/v1/files/{fileId} (spec 3.6.1) — synchronous passthrough to ARCHIUM.
+/// Result of GET /api/v1/files/{fileId}  synchronous passthrough to ARCHIUM.
 public class RetrievedFileResult
 {
     public long FileId { get; set; }

@@ -96,7 +96,7 @@ public class ExternalPortalService : IExternalPortalService
             attachments.Add((attachment.FileName, attachmentBytes));
         }
 
-        // Step 1 — upload the main document.
+        // Step 1 - upload the main document.
         var uploadedDocument = await _archiumClient.UploadSingleFileAsync(
             request.CallerSystemId, request.DigitalSignatureValidation, fileName, fileBytes,
             documentSubject: request.DocumentSubject, cancellationToken: cancellationToken);
@@ -104,14 +104,14 @@ public class ExternalPortalService : IExternalPortalService
         if (uploadedDocument is null)
             return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
-        // Step 2 — look up the protocol number assigned to it.
+        // Step 2 - look up the protocol number assigned to it.
         var protocol = await _archiumClient.GetProtocolForFileAsync(
             uploadedDocument.FileId, request.CallerSystemId, cancellationToken);
 
         if (protocol is null)
             return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
-        // Step 3 — upload each attachment separately, collecting its own fileId.
+        // Step 3 - upload each attachment separately
         var uploadedAttachments = new List<UploadedAttachmentDto>();
         foreach (var attachment in attachments)
         {

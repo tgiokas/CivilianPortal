@@ -15,14 +15,12 @@ public class UploadedAttachmentDto
     public long FileId { get; set; }
 }
 
-/// Raw result of a single-file upload to ARCHIUM (no protocol assignment yet).
 public class UploadedFileRef
 {
     public long FileId { get; set; }
     public DateTime Timestamp { get; set; }
 }
 
-/// PLACEHOLDER — shape of ARCHIUM's protocol-lookup response is unconfirmed.
 public class ProtocolAssignmentResult
 {
     public long FileId { get; set; }

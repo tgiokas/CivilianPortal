@@ -1,6 +1,5 @@
 namespace CitizenPortal.Application.Dtos;
 
-/// Synchronous success response for POST /api/v1/external-portal/archive (spec 3.5.1.2.4).
 public class ArchiveFileResult
 {
     public long ArchiumFolderId { get; set; }
