@@ -98,7 +98,8 @@ public class ExternalPortalService : IExternalPortalService
 
         // Step 1 — upload the main document.
         var uploadedDocument = await _archiumClient.UploadSingleFileAsync(
-            request.CallerSystemId, request.DigitalSignatureValidation, fileName, fileBytes, cancellationToken);
+            request.CallerSystemId, request.DigitalSignatureValidation, fileName, fileBytes,
+            subject: request.Subject, cancellationToken: cancellationToken);
 
         if (uploadedDocument is null)
             return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
@@ -115,7 +116,8 @@ public class ExternalPortalService : IExternalPortalService
         foreach (var attachment in attachments)
         {
             var uploadedAttachment = await _archiumClient.UploadSingleFileAsync(
-                request.CallerSystemId, request.DigitalSignatureValidation, attachment.FileName, attachment.Content, cancellationToken);
+                request.CallerSystemId, request.DigitalSignatureValidation, attachment.FileName, attachment.Content,
+                cancellationToken: cancellationToken);
 
             if (uploadedAttachment is null)
                 return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
