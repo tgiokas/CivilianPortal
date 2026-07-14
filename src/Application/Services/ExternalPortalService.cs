@@ -57,8 +57,8 @@ public class ExternalPortalService : IExternalPortalService
         return Result<CreateFolderResult>.Ok(result);
     }
 
-    public async Task<Result<UploadFileResult>> SubmitUploadAsync(
-        UploadFileRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<UploadDocumentResult>> SubmitUploadAsync(
+        UploadDocumentRequest request, CancellationToken cancellationToken = default)
     {
         var fileName = string.IsNullOrWhiteSpace(request.FileName) ? "document.pdf" : request.FileName;
 
@@ -69,14 +69,14 @@ public class ExternalPortalService : IExternalPortalService
         }
         catch (FormatException)
         {
-            return _errors.Fail<UploadFileResult>(ErrorCodes.PORTAL.InvalidApplicationData);
+            return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.InvalidApplicationData);
         }
 
         var (isValid, errorCode) = await ValidateFileAsync(fileName, fileBytes, cancellationToken);
         if (!isValid)
-            return _errors.Fail<UploadFileResult>(errorCode!);
+            return _errors.Fail<UploadDocumentResult>(errorCode!);
 
-        var attachments = new List<UploadedFilePayload>();
+        var attachments = new List<(string FileName, byte[] Content)>();
         foreach (var attachment in request.Attachments)
         {
             byte[] attachmentBytes;
@@ -86,32 +86,59 @@ public class ExternalPortalService : IExternalPortalService
             }
             catch (FormatException)
             {
-                return _errors.Fail<UploadFileResult>(ErrorCodes.PORTAL.InvalidApplicationData);
+                return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.InvalidApplicationData);
             }
 
             var (attachmentValid, attachmentError) = await ValidateFileAsync(attachment.FileName, attachmentBytes, cancellationToken);
             if (!attachmentValid)
-                return _errors.Fail<UploadFileResult>(attachmentError!);
+                return _errors.Fail<UploadDocumentResult>(attachmentError!);
 
-            attachments.Add(new UploadedFilePayload
+            attachments.Add((attachment.FileName, attachmentBytes));
+        }
+
+        // Step 1 — upload the main document.
+        var uploadedDocument = await _archiumClient.UploadSingleFileAsync(
+            request.CallerSystemId, request.DigitalSignatureValidation, fileName, fileBytes, cancellationToken);
+
+        if (uploadedDocument is null)
+            return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
+
+        // Step 2 — look up the protocol number assigned to it.
+        var protocol = await _archiumClient.GetProtocolForFileAsync(
+            uploadedDocument.FileId, request.CallerSystemId, cancellationToken);
+
+        if (protocol is null)
+            return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
+
+        // Step 3 — upload each attachment separately, collecting its own fileId.
+        var uploadedAttachments = new List<UploadedAttachmentDto>();
+        foreach (var attachment in attachments)
+        {
+            var uploadedAttachment = await _archiumClient.UploadSingleFileAsync(
+                request.CallerSystemId, request.DigitalSignatureValidation, attachment.FileName, attachment.Content, cancellationToken);
+
+            if (uploadedAttachment is null)
+                return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
+
+            uploadedAttachments.Add(new UploadedAttachmentDto
             {
                 FileName = attachment.FileName,
-                ContentType = "application/octet-stream",
-                Content = attachmentBytes
+                FileId = uploadedAttachment.FileId
             });
         }
 
-        var result = await _archiumClient.UploadFileAsync(
-            request.CallerSystemId, request.DigitalSignatureValidation, fileName, fileBytes, attachments, cancellationToken);
-
-        if (result is null)
-            return _errors.Fail<UploadFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
-
         _logger.LogInformation(
-            "File uploaded for caller {CallerSystemId}: fileId={FileId}, protocol={ProtocolNumber}/{ProtocolYear}.",
-            request.CallerSystemId, result.FileId, result.ProtocolNumber, result.ProtocolYear);
+            "File uploaded for caller {CallerSystemId}: fileId={FileId}, protocol={ProtocolNumber}/{ProtocolYear}, {AttachmentCount} attachment(s).",
+            request.CallerSystemId, uploadedDocument.FileId, protocol.ProtocolNumber, protocol.ProtocolYear, uploadedAttachments.Count);
 
-        return Result<UploadFileResult>.Ok(result);
+        return Result<UploadDocumentResult>.Ok(new UploadDocumentResult
+        {
+            FileId = uploadedDocument.FileId,
+            ProtocolNumber = protocol.ProtocolNumber,
+            ProtocolYear = protocol.ProtocolYear,
+            Timestamp = protocol.Timestamp,
+            Attachments = uploadedAttachments
+        });
     }
 
     public async Task<Result<ArchiveFileResult>> SubmitArchiveAsync(

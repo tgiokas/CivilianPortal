@@ -95,22 +95,16 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         return JsonSerializer.Deserialize<RetrievedFileResult>(json, _jsonOptions);
     }
 
-    public async Task<UploadFileResult?> UploadFileAsync(
-        string callerSystemId, bool digitalSignatureValidation, 
-        string fileName, byte[] file, List<UploadedFilePayload> attachments,
+    public async Task<UploadedFileRef?> UploadSingleFileAsync(
+        string callerSystemId, bool digitalSignatureValidation, string fileName, byte[] file,
         CancellationToken cancellationToken = default)
     {
-        var body = new UploadFileRequest
+        var body = new UploadDocumentRequest
         {
             CallerSystemId = callerSystemId,
-            DigitalSignatureValidation = digitalSignatureValidation,            
+            DigitalSignatureValidation = digitalSignatureValidation,
             FileName = fileName,
-            File = Convert.ToBase64String(file),
-            Attachments = attachments.Select(a => new UploadFileAttachment
-            {
-                FileName = a.FileName,
-                File = Convert.ToBase64String(a.Content)
-            }).ToList()
+            File = Convert.ToBase64String(file)
         };
 
         var request = new HttpRequestMessage(HttpMethod.Post, FilesEndpoint + "/upload")
@@ -128,7 +122,27 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<UploadFileResult>(json, _jsonOptions);
+        return JsonSerializer.Deserialize<UploadedFileRef>(json, _jsonOptions);
+    }
+
+    /// PLACEHOLDER — path is a guess until ARCHIUM's real protocol-lookup contract is confirmed.
+    public async Task<ProtocolAssignmentResult?> GetProtocolForFileAsync(
+        long fileId, string callerSystemId, CancellationToken cancellationToken = default)
+    {
+        var uri = $"{FilesEndpoint}/{fileId}/protocol?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
+
+        var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        var response = await SendRequestAsync(request, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("ARCHIUM returned {StatusCode} fetching protocol for file {FileId}",
+                (int)response.StatusCode, fileId);
+            return null;
+        }
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        return JsonSerializer.Deserialize<ProtocolAssignmentResult>(json, _jsonOptions);
     }
 
     public async Task<ArchiveFileResult?> ArchiveFileAsync(

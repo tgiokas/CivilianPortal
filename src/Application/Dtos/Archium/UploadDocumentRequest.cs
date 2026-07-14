@@ -1,7 +1,7 @@
 namespace CitizenPortal.Application.Dtos;
 
-/// Request body for POST /api/v1/files/upload 
-public class UploadFileRequest
+/// Request body for POST /api/v1/files/upload
+public class UploadDocumentRequest
 {
     public string CallerSystemId { get; set; } = string.Empty;
     public bool DigitalSignatureValidation { get; set; }
