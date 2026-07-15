@@ -58,17 +58,17 @@ public class ExternalPortalService : IExternalPortalService
         return Result<CreateFolderResult>.Ok(result);
     }
 
-    public async Task<Result<UploadDocumentResult>> SubmitUploadAsync(
-        UploadDocumentRequest request, CancellationToken cancellationToken = default)
+    public async Task<Result<SubmitDocumentResult>> SubmitUploadAsync(
+        SubmitDocumentRequest request, CancellationToken cancellationToken = default)
     {
         if (request.File is null)
-            return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.NoFilesProvided);
+            return _errors.Fail<SubmitDocumentResult>(ErrorCodes.PORTAL.NoFilesProvided);
 
         var fileName = string.IsNullOrWhiteSpace(request.FileName) ? request.File.FileName : request.FileName;
 
         var (isValid, errorCode) = await ValidateFileAsync(request.File, fileName, cancellationToken);
         if (!isValid)
-            return _errors.Fail<UploadDocumentResult>(errorCode!);
+            return _errors.Fail<SubmitDocumentResult>(errorCode!);
 
         var attachments = new List<(string FileName, IFormFile File)>();
         foreach (var attachment in request.Attachments)
@@ -76,7 +76,7 @@ public class ExternalPortalService : IExternalPortalService
             var attachmentFileName = string.IsNullOrWhiteSpace(attachment.FileName) ? "attachment" : attachment.FileName;
             var (attachmentValid, attachmentError) = await ValidateFileAsync(attachment, attachmentFileName, cancellationToken);
             if (!attachmentValid)
-                return _errors.Fail<UploadDocumentResult>(attachmentError!);
+                return _errors.Fail<SubmitDocumentResult>(attachmentError!);
 
             attachments.Add((attachmentFileName, attachment));
         }
@@ -86,26 +86,26 @@ public class ExternalPortalService : IExternalPortalService
             request.File, fileName, cancellationToken);
 
         if (uploadedDocument is null)
-            return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
+            return _errors.Fail<SubmitDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
         // Step 2 - look up the protocol number assigned to it.
         var protocol = await _archiumClient.GetProtocolForFileAsync(
             uploadedDocument.PdfId, request.CallerSystemId, cancellationToken);
 
         if (protocol is null)
-            return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
+            return _errors.Fail<SubmitDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
         // Step 3 - upload each attachment separately
-        var uploadedAttachments = new List<UploadedAttachmentDto>();
+        var uploadedAttachments = new List<SubmitedAttachmentDto>();
         foreach (var attachment in attachments)
         {
             var uploadedAttachment = await _archiumClient.UploadDocumentAsync(
                 attachment.File, attachment.FileName, cancellationToken);
 
             if (uploadedAttachment is null)
-                return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
+                return _errors.Fail<SubmitDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
-            uploadedAttachments.Add(new UploadedAttachmentDto
+            uploadedAttachments.Add(new SubmitedAttachmentDto
             {
                 FileName = attachment.FileName,
                 FileId = uploadedAttachment.PdfId
@@ -116,7 +116,7 @@ public class ExternalPortalService : IExternalPortalService
             "File uploaded for caller {CallerSystemId}: fileId={FileId}, protocol={ProtocolNumber}/{ProtocolYear}, {AttachmentCount} attachment(s).",
             request.CallerSystemId, uploadedDocument.PdfId, protocol.ProtocolNumber, protocol.ProtocolYear, uploadedAttachments.Count);
 
-        return Result<UploadDocumentResult>.Ok(new UploadDocumentResult
+        return Result<SubmitDocumentResult>.Ok(new SubmitDocumentResult
         {
             FileId = uploadedDocument.PdfId,
             ProtocolNumber = protocol.ProtocolNumber,

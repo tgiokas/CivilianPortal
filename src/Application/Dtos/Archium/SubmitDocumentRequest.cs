@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 namespace CitizenPortal.Application.Dtos;
 
 /// Multipart form body for POST /api/v1/files/upload.
-public class UploadDocumentRequest
+public class SubmitDocumentRequest
 {
     public string CallerSystemId { get; set; } = string.Empty;
     public bool DigitalSignatureValidation { get; set; }

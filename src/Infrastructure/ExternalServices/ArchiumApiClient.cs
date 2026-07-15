@@ -96,7 +96,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         return JsonSerializer.Deserialize<RetrievedFileResult>(json, _jsonOptions);
     }
 
-    public async Task<ArchiumUploadResult?> UploadDocumentAsync(
+    public async Task<UploadDocumentResult?> UploadDocumentAsync(
         IFormFile file, string fileName, CancellationToken cancellationToken = default)
     {
         await using var fileStream = file.OpenReadStream();
@@ -125,7 +125,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var result = JsonSerializer.Deserialize<Result<ArchiumUploadResult>>(json, _jsonOptions);
+        var result = JsonSerializer.Deserialize<Result<UploadDocumentResult>>(json, _jsonOptions);
 
         if (result is null || !result.Success || result.Data is null)
         {
@@ -139,7 +139,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     }
 
     /// PLACEHOLDER — path is a guess until ARCHIUM's real protocol-lookup contract is confirmed.
-    public async Task<ArchiumProtocolResult?> GetProtocolForFileAsync(
+    public async Task<ProtocolAssignResult?> GetProtocolForFileAsync(
         long fileId, string callerSystemId, CancellationToken cancellationToken = default)
     {
         var uri = $"{FilesEndpoint}/{fileId}/protocol?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
@@ -155,7 +155,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<ArchiumProtocolResult
+        return JsonSerializer.Deserialize<ProtocolAssignResult
             >(json, _jsonOptions);
     }
 

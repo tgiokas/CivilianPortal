@@ -11,8 +11,8 @@ public interface IExternalPortalService
     Task<Result<CreateFolderResult>> CreateFolderAsync(
         CreateFolderRequest request, CancellationToken cancellationToken = default);
 
-    Task<Result<UploadDocumentResult>> SubmitUploadAsync(
-        UploadDocumentRequest request, CancellationToken cancellationToken = default);
+    Task<Result<SubmitDocumentResult>> SubmitUploadAsync(
+        SubmitDocumentRequest request, CancellationToken cancellationToken = default);
 
     Task<Result<ArchiveFileResult>> SubmitArchiveAsync(
         ArchiveFileRequest request, CancellationToken cancellationToken = default);
