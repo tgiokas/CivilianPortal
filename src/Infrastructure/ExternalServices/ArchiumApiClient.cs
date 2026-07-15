@@ -1,8 +1,11 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
+using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Dtos;
 using CitizenPortal.Application.Interfaces;
 using CitizenPortal.Infrastructure.ApiClients;
@@ -20,12 +23,14 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     private const string FoldersEndpoint = "/api/v1/external-portal/folders";
     private const string FilesEndpoint = "/api/v1/file/tempAndConvert";
     private const string TempBucketName = "temp";
-    private const string ArchiveEndpoint = "/api/v1/external-portal/archive";
     private const string ReceivedDocumentsOpsEndpoint = "/api/v1/received-documents/ops";
 
-    public ArchiumApiClient(HttpClient httpClient, ILogger<ArchiumApiClient> logger)
+    private readonly ArchiumClientSettings _settings;
+
+    public ArchiumApiClient(HttpClient httpClient, ILogger<ArchiumApiClient> logger, IOptions<ArchiumClientSettings> settings)
         : base(httpClient, logger)
     {
+        _settings = settings.Value;
     }
 
     public async Task<FolderListResult?> GetFoldersAsync(long? parentId, CancellationToken cancellationToken = default)
@@ -102,14 +107,34 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         IFormFile file, string fileName, CancellationToken cancellationToken = default)
     {
         await using var fileStream = file.OpenReadStream();
+        using var streamContent = new StreamContent(fileStream);
+        return await UploadDocumentAsync(
+            streamContent,
+            string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
+            fileName,
+            cancellationToken);
+    }
+
+    public async Task<UploadDocumentResult?> UploadDocumentAsync(
+        byte[] content, string contentType, string fileName, CancellationToken cancellationToken = default)
+    {
+        using var byteArrayContent = new ByteArrayContent(content);
+        return await UploadDocumentAsync(
+            byteArrayContent,
+            string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
+            fileName,
+            cancellationToken);
+    }
+
+    private async Task<UploadDocumentResult?> UploadDocumentAsync(
+        HttpContent fileContent, string contentType, string fileName, CancellationToken cancellationToken)
+    {
         using var content = new MultipartFormDataContent
         {
             { new StringContent(TempBucketName), "bucketName" }
         };
 
-        var fileContent = new StreamContent(fileStream);
-        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
-            string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         content.Add(fileContent, "file", fileName);
 
         var request = new HttpRequestMessage(HttpMethod.Post, FilesEndpoint)
@@ -171,39 +196,29 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         return JsonSerializer.Deserialize<ProtocolDocumentResult>(json, _jsonOptions);
     }
 
-    public async Task<ArchiveFileResult?> ArchiveFileAsync(
-        long folderId, List<UploadedFilePayload> files, bool protocolRequired,
-        CancellationToken cancellationToken = default)
+    public async Task<bool> AttachDocumentsToFolderAsync(
+        long folderId, UpdateFolderDocumentsRequest folderRequest, CancellationToken cancellationToken = default)
     {
-        using var content = new MultipartFormDataContent
+        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/folder/{folderId}")
         {
-            { new StringContent(folderId.ToString()), "archiumFolderId" },
-            { new StringContent(protocolRequired.ToString()), "protocol.required" }
+            Content = JsonContent.Create(folderRequest, options: _jsonOptions)
         };
 
-        foreach (var file in files)
-        {
-            var fileContent = new ByteArrayContent(file.Content);
-            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
-                string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
-            content.Add(fileContent, "files", file.FileName);
-        }
-
-        var request = new HttpRequestMessage(HttpMethod.Post, ArchiveEndpoint)
-        {
-            Content = content
-        };
+        request.Headers.Add("roleId", _settings.RoleId);
+        request.Headers.Add("organizationUnitId", _settings.OrganizationUnitId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.AuthToken);
+        request.Headers.Add("Cookie", _settings.Cookie);
 
         var response = await SendRequestAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("ARCHIUM returned {StatusCode} archiving {FileCount} file(s) into folder {FolderId}",
-                (int)response.StatusCode, files.Count, folderId);
-            return null;
+            _logger.LogError(
+                "ARCHIUM returned {StatusCode} attaching {DocumentCount} document(s) to folder {FolderId}",
+                (int)response.StatusCode, folderRequest.Documents.Count, folderId);
+            return false;
         }
 
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<ArchiveFileResult>(json, _jsonOptions);
+        return true;
     }
 }

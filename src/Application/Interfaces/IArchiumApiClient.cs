@@ -17,16 +17,20 @@ public interface IArchiumApiClient
     Task<RetrievedFileResult?> GetFileAsync(long fileId, string callerSystemId, CancellationToken cancellationToken = default);
 
     /// Uploads a single file to ARCHIUM and returns its fileId, used for both the main
-    /// document and each attachment 
+    /// document and each attachment
     Task<UploadDocumentResult?> UploadDocumentAsync(
         IFormFile file, string fileName, CancellationToken cancellationToken = default);
+
+    /// Uploads a single file (as raw bytes) to ARCHIUM and returns its fileId.
+    Task<UploadDocumentResult?> UploadDocumentAsync(
+        byte[] content, string contentType, string fileName, CancellationToken cancellationToken = default);
 
     /// Gets the protocol number assigned to an already-uploaded document and its accompanying files.
     Task<ProtocolDocumentResult?> GetProtocolForDocumentAsync(
         long fileId, string subject, string externalIntegration, IReadOnlyCollection<long> accompanyingFileIds,
         CancellationToken cancellationToken = default);
 
-    Task<ArchiveFileResult?> ArchiveFileAsync(
-        long folderId, List<UploadedFilePayload> files, bool protocolRequired,
-        CancellationToken cancellationToken = default);
+    /// Attaches already-uploaded documents (by fileId) to a folder.
+    Task<bool> AttachDocumentsToFolderAsync(
+        long folderId, UpdateFolderDocumentsRequest request, CancellationToken cancellationToken = default);
 }

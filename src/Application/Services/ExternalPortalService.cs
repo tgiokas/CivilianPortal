@@ -140,15 +140,53 @@ public class ExternalPortalService : IExternalPortalService
                 return _errors.Fail<ArchiveFileResult>(errorCode!);
         }
 
-        var result = await _archiumClient.ArchiveFileAsync(
-            request.FolderId, request.Files, request.ProtocolRequired, cancellationToken);
+        // Step 1 - upload each file individually and collect its ARCHIUM fileId.
+        var uploadedFiles = new List<(string FileName, long FileId)>();
+        foreach (var file in request.Files)
+        {
+            var uploaded = await _archiumClient.UploadDocumentAsync(
+                file.Content, file.ContentType, file.FileName, cancellationToken);
 
-        if (result is null)
+            if (uploaded is null)
+                return _errors.Fail<ArchiveFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
+
+            uploadedFiles.Add((file.FileName, uploaded.PdfId));
+        }
+
+        // Step 2 - attach the uploaded files to the target folder.
+        var folderRequest = new UpdateFolderDocumentsRequest
+        {
+            Subject = uploadedFiles[0].FileName,
+            ParentId = request.FolderId,
+            MetadataId = _archiumSettings.MetadataId,
+            Documents = uploadedFiles
+                .Select(file => new FolderDocumentEntry { DocumentId = null, FileId = file.FileId })
+                .ToList()
+        };
+
+        var attached = await _archiumClient.AttachDocumentsToFolderAsync(
+            request.FolderId, folderRequest, cancellationToken);
+
+        if (!attached)
             return _errors.Fail<ArchiveFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
+        var result = new ArchiveFileResult
+        {
+            ArchiumFolderId = request.FolderId,
+            ArchivedFile = new ArchivedFileDto
+            {
+                FileName = uploadedFiles[0].FileName,
+                ArchiumFileId = uploadedFiles[0].FileId,
+                Attachments = uploadedFiles.Skip(1)
+                    .Select(file => new ArchivedAttachmentDto { FileName = file.FileName, ArchiumFileId = file.FileId })
+                    .ToList()
+            },
+            Timestamp = DateTime.UtcNow
+        };
+
         _logger.LogInformation(
-            "Archived {FileCount} file(s) into ARCHIUM folder {FolderId}: fileId={FileId}, protocol={ProtocolNumber}/{ProtocolYear}.",
-            request.Files.Count, request.FolderId, result.ArchivedFile.ArchiumFileId, result.ProtocolNumber, result.ProtocolYear);
+            "Archived {FileCount} file(s) into ARCHIUM folder {FolderId}: fileId={FileId}.",
+            request.Files.Count, request.FolderId, result.ArchivedFile.ArchiumFileId);
 
         return Result<ArchiveFileResult>.Ok(result);
     }
