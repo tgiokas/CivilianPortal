@@ -17,21 +17,18 @@ public class ExternalPortalService : IExternalPortalService
         ".pdf", ".docx", ".doc", ".xlsx", ".xls"
     };
 
-    private readonly IArchiumApiClient _archiumClient;
-    private readonly IAntivirusScanner _antivirusScanner;
+    private readonly IArchiumApiClient _archiumClient;   
     private readonly ArchiumClientSettings _archiumSettings;
     private readonly IErrorCatalog _errors;
     private readonly ILogger<ExternalPortalService> _logger;
 
     public ExternalPortalService(
         IArchiumApiClient archiumClient,
-        IAntivirusScanner antivirusScanner,
         IOptions<ArchiumClientSettings> archiumOptions,
         IErrorCatalog errors,
         ILogger<ExternalPortalService> logger)
     {
-        _archiumClient = archiumClient;
-        _antivirusScanner = antivirusScanner;
+        _archiumClient = archiumClient;    
         _archiumSettings = archiumOptions.Value;
         _errors = errors;
         _logger = logger;
@@ -88,14 +85,7 @@ public class ExternalPortalService : IExternalPortalService
         if (uploadedDocument is null)
             return _errors.Fail<SubmitDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
-        // Step 2 - look up the protocol number assigned to it.
-        var protocol = await _archiumClient.GetProtocolForFileAsync(
-            uploadedDocument.PdfId, request.CallerSystemId, cancellationToken);
-
-        if (protocol is null)
-            return _errors.Fail<SubmitDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
-
-        // Step 3 - upload each attachment separately
+        // Step 2 - upload each attachment separately before requesting a protocol.
         var uploadedAttachments = new List<SubmitedAttachmentDto>();
         foreach (var attachment in attachments)
         {
@@ -111,6 +101,17 @@ public class ExternalPortalService : IExternalPortalService
                 FileId = uploadedAttachment.PdfId
             });
         }
+
+        // Step 3 - look up the protocol number assigned to the document and uploaded attachments.
+        var protocol = await _archiumClient.GetProtocolForDocumentAsync(
+            uploadedDocument.PdfId,
+            request.DocumentSubject ?? fileName,
+            request.CallerSystemId,
+            uploadedAttachments.Select(attachment => attachment.FileId).ToList(),
+            cancellationToken);
+
+        if (protocol is null)
+            return _errors.Fail<SubmitDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
         _logger.LogInformation(
             "File uploaded for caller {CallerSystemId}: fileId={FileId}, protocol={ProtocolNumber}/{ProtocolYear}, {AttachmentCount} attachment(s).",

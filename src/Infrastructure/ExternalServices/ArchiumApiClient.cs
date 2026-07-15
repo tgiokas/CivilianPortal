@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     private const string FilesEndpoint = "/api/v1/file/tempAndConvert";
     private const string TempBucketName = "temp";
     private const string ArchiveEndpoint = "/api/v1/external-portal/archive";
+    private const string ReceivedDocumentsOpsEndpoint = "/api/v1/received-documents/ops";
 
     public ArchiumApiClient(HttpClient httpClient, ILogger<ArchiumApiClient> logger)
         : base(httpClient, logger)
@@ -138,25 +140,35 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         return result.Data;
     }
 
-    /// PLACEHOLDER — path is a guess until ARCHIUM's real protocol-lookup contract is confirmed.
-    public async Task<ProtocolAssignResult?> GetProtocolForFileAsync(
-        long fileId, string callerSystemId, CancellationToken cancellationToken = default)
+    public async Task<ProtocolDocumentResult?> GetProtocolForDocumentAsync(
+        long fileId, string subject, string externalIntegration, IReadOnlyCollection<long> accompanyingFileIds,
+        CancellationToken cancellationToken = default)
     {
-        var uri = $"{FilesEndpoint}/{fileId}/protocol?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
+        var payload = new ProtocolDocumentRequest
+        {
+            FileId = fileId,
+            Subject = subject,
+            ExternalIntegration = externalIntegration,
+            AccompaningFiles = accompanyingFileIds.ToList()
+        };
 
-        var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        var request = new HttpRequestMessage(HttpMethod.Post, ReceivedDocumentsOpsEndpoint)
+        {
+            Content = JsonContent.Create(payload, options: _jsonOptions)
+        };
+
         var response = await SendRequestAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("ARCHIUM returned {StatusCode} fetching protocol for file {FileId}",
-                (int)response.StatusCode, fileId);
+            _logger.LogError(
+                "ARCHIUM returned {StatusCode} fetching protocol for document file {FileId} with {AttachmentCount} accompanying file(s)",
+                (int)response.StatusCode, fileId, accompanyingFileIds.Count);
             return null;
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<ProtocolAssignResult
-            >(json, _jsonOptions);
+        return JsonSerializer.Deserialize<ProtocolDocumentResult>(json, _jsonOptions);
     }
 
     public async Task<ArchiveFileResult?> ArchiveFileAsync(

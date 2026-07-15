@@ -21,9 +21,10 @@ public interface IArchiumApiClient
     Task<UploadDocumentResult?> UploadDocumentAsync(
         IFormFile file, string fileName, CancellationToken cancellationToken = default);
 
-    /// Gettingthe protocol number assigned to an already-uploaded fileId
-    Task<ProtocolAssignResult?> GetProtocolForFileAsync(
-        long fileId, string callerSystemId, CancellationToken cancellationToken = default);
+    /// Gets the protocol number assigned to an already-uploaded document and its accompanying files.
+    Task<ProtocolDocumentResult?> GetProtocolForDocumentAsync(
+        long fileId, string subject, string externalIntegration, IReadOnlyCollection<long> accompanyingFileIds,
+        CancellationToken cancellationToken = default);
 
     Task<ArchiveFileResult?> ArchiveFileAsync(
         long folderId, List<UploadedFilePayload> files, bool protocolRequired,
