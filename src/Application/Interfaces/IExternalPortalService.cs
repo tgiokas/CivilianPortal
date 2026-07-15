@@ -15,7 +15,7 @@ public interface IExternalPortalService
         SubmitDocumentRequest request, CancellationToken cancellationToken = default);
 
     Task<Result<ArchiveFileResult>> SubmitArchiveAsync(
-        ArchiveFileFormRequest request, CancellationToken cancellationToken = default);
+        ArchiveFileRequest request, CancellationToken cancellationToken = default);
 
     Task<Result<RetrievedFileResult>> RetrieveFileAsync(long fileId, CancellationToken cancellationToken = default);
 }

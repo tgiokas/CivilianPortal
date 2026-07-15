@@ -22,6 +22,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
 
     private const string FoldersEndpoint = "/api/v1/external-portal/folders";
     private const string FilesEndpoint = "/api/v1/file/tempAndConvert";
+    private const string FilesEndpointTemp = "/api/v1/file/temp";
     private const string TempBucketName = "temp";
     private const string ReceivedDocumentsOpsEndpoint = "/api/v1/received-documents/ops";
 

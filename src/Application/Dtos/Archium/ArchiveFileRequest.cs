@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace CitizenPortal.Application.Dtos;
 
-public class ArchiveFileFormRequest
+public class ArchiveFileRequest
 {
     public long ArchiumFolderId { get; set; }
     public List<IFormFile> Files { get; set; } = [];

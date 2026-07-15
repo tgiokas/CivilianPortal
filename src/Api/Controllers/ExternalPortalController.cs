@@ -38,17 +38,6 @@ public class ExternalPortalController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, result.Data);
     }
 
-    [HttpPost("external-portal/archive")]
-    public async Task<IActionResult> ArchiveFiles([FromForm] ArchiveFileFormRequest form, CancellationToken cancellationToken)
-    {
-        var result = await _externalPortalService.SubmitArchiveAsync(form, cancellationToken);
-
-        if (!result.Success)
-            return BadRequest(result);
-
-        return StatusCode(StatusCodes.Status201Created, result.Data);
-    }
-
     [HttpPost("files/upload")]
     public async Task<IActionResult> UploadFile([FromForm] SubmitDocumentRequest request, CancellationToken cancellationToken)
     {
@@ -58,6 +47,17 @@ public class ExternalPortalController : ControllerBase
             return BadRequest(result);
 
         return Ok(result.Data);
+    }
+
+    [HttpPost("external-portal/archive")]
+    public async Task<IActionResult> ArchiveFiles([FromForm] ArchiveFileRequest form, CancellationToken cancellationToken)
+    {
+        var result = await _externalPortalService.SubmitArchiveAsync(form, cancellationToken);
+
+        if (!result.Success)
+            return BadRequest(result);
+
+        return StatusCode(StatusCodes.Status201Created, result.Data);
     }
 
     [HttpGet("files/{fileId:long}")]

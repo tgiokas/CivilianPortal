@@ -128,7 +128,7 @@ public class ExternalPortalService : IExternalPortalService
     }
 
     public async Task<Result<ArchiveFileResult>> SubmitArchiveAsync(
-        ArchiveFileFormRequest request, CancellationToken cancellationToken = default)
+        ArchiveFileRequest request, CancellationToken cancellationToken = default)
     {
         if (request.Files.Count == 0)
             return _errors.Fail<ArchiveFileResult>(ErrorCodes.PORTAL.NoFilesProvided);
