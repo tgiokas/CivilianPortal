@@ -70,7 +70,7 @@ public class ExternalPortalController : ControllerBase
     }
 
     [HttpPost("files/upload")]
-    public async Task<IActionResult> UploadFile([FromBody] UploadDocumentRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> UploadFile([FromForm] UploadDocumentRequest request, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.SubmitUploadAsync(request, cancellationToken);
 

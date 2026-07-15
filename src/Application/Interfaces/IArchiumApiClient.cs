@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+
 using CitizenPortal.Application.Dtos;
 
 namespace CitizenPortal.Application.Interfaces;
@@ -16,9 +18,8 @@ public interface IArchiumApiClient
 
     /// Uploads a single file to ARCHIUM and returns its fileId, used for both the main
     /// document and each attachment 
-    Task<UploadedFileRef?> UploadSingleFileAsync(
-        string callerSystemId, bool digitalSignatureValidation, string fileName, byte[] file,
-        string? documentSubject = null, CancellationToken cancellationToken = default);
+    Task<UploadedFileRef?> UploadDocumentAsync(
+        IFormFile file, string fileName, CancellationToken cancellationToken = default);
 
     /// Gettingthe protocol number assigned to an already-uploaded fileId
     Task<ProtocolAssignmentResult?> GetProtocolForFileAsync(

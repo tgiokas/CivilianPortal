@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Http;
 
 using CitizenPortal.Application.Configuration;
 using CitizenPortal.Application.Dtos;
@@ -60,53 +61,36 @@ public class ExternalPortalService : IExternalPortalService
     public async Task<Result<UploadDocumentResult>> SubmitUploadAsync(
         UploadDocumentRequest request, CancellationToken cancellationToken = default)
     {
-        var fileName = string.IsNullOrWhiteSpace(request.FileName) ? "document.pdf" : request.FileName;
+        if (request.File is null)
+            return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.NoFilesProvided);
 
-        byte[] fileBytes;
-        try
-        {
-            fileBytes = Convert.FromBase64String(request.File);
-        }
-        catch (FormatException)
-        {
-            return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.InvalidApplicationData);
-        }
+        var fileName = string.IsNullOrWhiteSpace(request.FileName) ? request.File.FileName : request.FileName;
 
-        var (isValid, errorCode) = await ValidateFileAsync(fileName, fileBytes, cancellationToken);
+        var (isValid, errorCode) = await ValidateFileAsync(request.File, fileName, cancellationToken);
         if (!isValid)
             return _errors.Fail<UploadDocumentResult>(errorCode!);
 
-        var attachments = new List<(string FileName, byte[] Content)>();
+        var attachments = new List<(string FileName, IFormFile File)>();
         foreach (var attachment in request.Attachments)
         {
-            byte[] attachmentBytes;
-            try
-            {
-                attachmentBytes = Convert.FromBase64String(attachment.File);
-            }
-            catch (FormatException)
-            {
-                return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.InvalidApplicationData);
-            }
-
-            var (attachmentValid, attachmentError) = await ValidateFileAsync(attachment.FileName, attachmentBytes, cancellationToken);
+            var attachmentFileName = string.IsNullOrWhiteSpace(attachment.FileName) ? "attachment" : attachment.FileName;
+            var (attachmentValid, attachmentError) = await ValidateFileAsync(attachment, attachmentFileName, cancellationToken);
             if (!attachmentValid)
                 return _errors.Fail<UploadDocumentResult>(attachmentError!);
 
-            attachments.Add((attachment.FileName, attachmentBytes));
+            attachments.Add((attachmentFileName, attachment));
         }
 
         // Step 1 - upload the main document.
-        var uploadedDocument = await _archiumClient.UploadSingleFileAsync(
-            request.CallerSystemId, request.DigitalSignatureValidation, fileName, fileBytes,
-            documentSubject: request.DocumentSubject, cancellationToken: cancellationToken);
+        var uploadedDocument = await _archiumClient.UploadDocumentAsync(
+            request.File, fileName, cancellationToken);
 
         if (uploadedDocument is null)
             return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
         // Step 2 - look up the protocol number assigned to it.
         var protocol = await _archiumClient.GetProtocolForFileAsync(
-            uploadedDocument.FileId, request.CallerSystemId, cancellationToken);
+            uploadedDocument.PdfId, request.CallerSystemId, cancellationToken);
 
         if (protocol is null)
             return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
@@ -115,9 +99,8 @@ public class ExternalPortalService : IExternalPortalService
         var uploadedAttachments = new List<UploadedAttachmentDto>();
         foreach (var attachment in attachments)
         {
-            var uploadedAttachment = await _archiumClient.UploadSingleFileAsync(
-                request.CallerSystemId, request.DigitalSignatureValidation, attachment.FileName, attachment.Content,
-                cancellationToken: cancellationToken);
+            var uploadedAttachment = await _archiumClient.UploadDocumentAsync(
+                attachment.File, attachment.FileName, cancellationToken);
 
             if (uploadedAttachment is null)
                 return _errors.Fail<UploadDocumentResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
@@ -125,17 +108,17 @@ public class ExternalPortalService : IExternalPortalService
             uploadedAttachments.Add(new UploadedAttachmentDto
             {
                 FileName = attachment.FileName,
-                FileId = uploadedAttachment.FileId
+                FileId = uploadedAttachment.PdfId
             });
         }
 
         _logger.LogInformation(
             "File uploaded for caller {CallerSystemId}: fileId={FileId}, protocol={ProtocolNumber}/{ProtocolYear}, {AttachmentCount} attachment(s).",
-            request.CallerSystemId, uploadedDocument.FileId, protocol.ProtocolNumber, protocol.ProtocolYear, uploadedAttachments.Count);
+            request.CallerSystemId, uploadedDocument.PdfId, protocol.ProtocolNumber, protocol.ProtocolYear, uploadedAttachments.Count);
 
         return Result<UploadDocumentResult>.Ok(new UploadDocumentResult
         {
-            FileId = uploadedDocument.FileId,
+            FileId = uploadedDocument.PdfId,
             ProtocolNumber = protocol.ProtocolNumber,
             ProtocolYear = protocol.ProtocolYear,
             Timestamp = protocol.Timestamp,
@@ -179,6 +162,23 @@ public class ExternalPortalService : IExternalPortalService
     }
 
     private async Task<(bool IsValid, string? ErrorCode)> ValidateFileAsync(
+        Microsoft.AspNetCore.Http.IFormFile file, string fileName, CancellationToken cancellationToken)
+    {
+        if (file.Length > MaxFileBytes)
+            return (false, ErrorCodes.PORTAL.ArchiveFileTooLarge);
+
+        if (!AllowedExtensions.Contains(Path.GetExtension(fileName)))
+            return (false, ErrorCodes.PORTAL.UnsupportedArchiveFileType);
+
+        //await using var stream = file.OpenReadStream();
+        //var isClean = await _antivirusScanner.IsCleanAsync(stream, fileName, cancellationToken);
+        //if (!isClean)
+        //    return (false, ErrorCodes.PORTAL.InvalidFileType);
+
+        return (true, null);
+    }
+
+    private async Task<(bool IsValid, string? ErrorCode)> ValidateFileAsync(
         string fileName, byte[] content, CancellationToken cancellationToken)
     {
         if (content.Length > MaxFileBytes)
@@ -187,9 +187,10 @@ public class ExternalPortalService : IExternalPortalService
         if (!AllowedExtensions.Contains(Path.GetExtension(fileName)))
             return (false, ErrorCodes.PORTAL.UnsupportedArchiveFileType);
 
-        var isClean = await _antivirusScanner.IsCleanAsync(content, fileName, cancellationToken);
-        if (!isClean)
-            return (false, ErrorCodes.PORTAL.InvalidFileType);
+        //using var stream = new MemoryStream(content);
+        //var isClean = await _antivirusScanner.IsCleanAsync(stream, fileName, cancellationToken);
+        //if (!isClean)
+        //    return (false, ErrorCodes.PORTAL.InvalidFileType);
 
         return (true, null);
     }

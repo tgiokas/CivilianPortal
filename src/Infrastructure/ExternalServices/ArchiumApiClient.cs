@@ -1,5 +1,5 @@
-using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 using CitizenPortal.Application.Dtos;
@@ -17,7 +17,8 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     };
 
     private const string FoldersEndpoint = "/api/v1/external-portal/folders";
-    private const string FilesEndpoint = "/api/v1/files";
+    private const string FilesEndpoint = "/api/v1/file/tempAndConvert";
+    private const string TempBucketName = "temp";
     private const string ArchiveEndpoint = "/api/v1/external-portal/archive";
 
     public ArchiumApiClient(HttpClient httpClient, ILogger<ArchiumApiClient> logger)
@@ -95,35 +96,51 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         return JsonSerializer.Deserialize<RetrievedFileResult>(json, _jsonOptions);
     }
 
-    public async Task<UploadedFileRef?> UploadSingleFileAsync(
-        string callerSystemId, bool digitalSignatureValidation, string fileName, byte[] file,
-        string? documentSubject = null, CancellationToken cancellationToken = default)
+    public async Task<UploadedFileRef?> UploadDocumentAsync(
+        IFormFile file, string fileName, CancellationToken cancellationToken = default)
     {
-        var body = new UploadDocumentRequest
+        await using var fileStream = file.OpenReadStream();
+        using var content = new MultipartFormDataContent
         {
-            CallerSystemId = callerSystemId,
-            DigitalSignatureValidation = digitalSignatureValidation,
-            FileName = fileName,
-            DocumentSubject = documentSubject,
-            File = Convert.ToBase64String(file)
+            { new StringContent(TempBucketName), "bucketName" }
         };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, FilesEndpoint + "/upload")
+        var fileContent = new StreamContent(fileStream);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+            string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
+        content.Add(fileContent, "file", fileName);
+
+        var request = new HttpRequestMessage(HttpMethod.Post, FilesEndpoint)
         {
-            Content = JsonContent.Create(body, options: _jsonOptions)
+            Content = content
         };
 
         var response = await SendRequestAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("ARCHIUM returned {StatusCode} uploading file '{FileName}'",
+            _logger.LogError("ARCHIUM returned {StatusCode} converting temp file '{FileName}'",
                 (int)response.StatusCode, fileName);
             return null;
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<UploadedFileRef>(json, _jsonOptions);
+        var result = JsonSerializer.Deserialize<Result<TempAndConvertFileResult>>(json, _jsonOptions);
+
+        if (result is null || !result.Success || result.Data is null)
+        {
+            _logger.LogError(
+                "ARCHIUM returned unsuccessful temp conversion response for file '{FileName}': {ErrorCode} {Message}",
+                fileName, result?.ErrorCode, result?.Message);
+            return null;
+        }
+
+        return new UploadedFileRef
+        {
+            PdfId = result.Data.PdfId,
+            Id = result.Data.Id,
+            BucketName = result.Data.BucketName
+        };
     }
 
     /// PLACEHOLDER — path is a guess until ARCHIUM's real protocol-lookup contract is confirmed.
@@ -155,7 +172,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             { new StringContent(folderId.ToString()), "archiumFolderId" },
             { new StringContent(protocolRequired.ToString()), "protocol.required" }
         };
-       
+
         foreach (var file in files)
         {
             var fileContent = new ByteArrayContent(file.Content);
