@@ -21,10 +21,6 @@ public interface IArchiumApiClient
     Task<UploadDocumentResult?> UploadDocumentAsync(
         IFormFile file, string fileName, CancellationToken cancellationToken = default);
 
-    /// Uploads a single file (as raw bytes) to ARCHIUM and returns its fileId.
-    Task<UploadDocumentResult?> UploadDocumentAsync(
-        byte[] content, string contentType, string fileName, CancellationToken cancellationToken = default);
-
     /// Gets the protocol number assigned to an already-uploaded document and its accompanying files.
     Task<ProtocolDocumentResult?> GetProtocolForDocumentAsync(
         long fileId, string subject, string externalIntegration, IReadOnlyCollection<long> accompanyingFileIds,

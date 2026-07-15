@@ -107,34 +107,14 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         IFormFile file, string fileName, CancellationToken cancellationToken = default)
     {
         await using var fileStream = file.OpenReadStream();
-        using var streamContent = new StreamContent(fileStream);
-        return await UploadDocumentAsync(
-            streamContent,
-            string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
-            fileName,
-            cancellationToken);
-    }
-
-    public async Task<UploadDocumentResult?> UploadDocumentAsync(
-        byte[] content, string contentType, string fileName, CancellationToken cancellationToken = default)
-    {
-        using var byteArrayContent = new ByteArrayContent(content);
-        return await UploadDocumentAsync(
-            byteArrayContent,
-            string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType,
-            fileName,
-            cancellationToken);
-    }
-
-    private async Task<UploadDocumentResult?> UploadDocumentAsync(
-        HttpContent fileContent, string contentType, string fileName, CancellationToken cancellationToken)
-    {
         using var content = new MultipartFormDataContent
         {
             { new StringContent(TempBucketName), "bucketName" }
         };
 
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+        var fileContent = new StreamContent(fileStream);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(
+            string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
         content.Add(fileContent, "file", fileName);
 
         var request = new HttpRequestMessage(HttpMethod.Post, FilesEndpoint)

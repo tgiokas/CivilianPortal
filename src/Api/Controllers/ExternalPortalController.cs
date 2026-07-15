@@ -41,27 +41,7 @@ public class ExternalPortalController : ControllerBase
     [HttpPost("external-portal/archive")]
     public async Task<IActionResult> ArchiveFiles([FromForm] ArchiveFileFormRequest form, CancellationToken cancellationToken)
     {
-        var files = new List<UploadedFilePayload>();
-        foreach (var file in form.Files)
-        {
-            using var stream = new MemoryStream();
-            await file.CopyToAsync(stream, cancellationToken);
-            files.Add(new UploadedFilePayload
-            {
-                FileName = file.FileName,
-                ContentType = file.ContentType,
-                Content = stream.ToArray()
-            });
-        }
-
-        var request = new ArchiveFileRequest
-        {
-            FolderId = form.ArchiumFolderId,
-            Files = files,
-            ProtocolRequired = form.ProtocolRequired
-        };
-
-        var result = await _externalPortalService.SubmitArchiveAsync(request, cancellationToken);
+        var result = await _externalPortalService.SubmitArchiveAsync(form, cancellationToken);
 
         if (!result.Success)
             return BadRequest(result);

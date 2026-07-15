@@ -128,14 +128,14 @@ public class ExternalPortalService : IExternalPortalService
     }
 
     public async Task<Result<ArchiveFileResult>> SubmitArchiveAsync(
-        ArchiveFileRequest request, CancellationToken cancellationToken = default)
+        ArchiveFileFormRequest request, CancellationToken cancellationToken = default)
     {
         if (request.Files.Count == 0)
             return _errors.Fail<ArchiveFileResult>(ErrorCodes.PORTAL.NoFilesProvided);
 
         foreach (var file in request.Files)
         {
-            var (isValid, errorCode) = await ValidateFileAsync(file.FileName, file.Content, cancellationToken);
+            var (isValid, errorCode) = await ValidateFileAsync(file, file.FileName, cancellationToken);
             if (!isValid)
                 return _errors.Fail<ArchiveFileResult>(errorCode!);
         }
@@ -144,8 +144,7 @@ public class ExternalPortalService : IExternalPortalService
         var uploadedFiles = new List<(string FileName, long FileId)>();
         foreach (var file in request.Files)
         {
-            var uploaded = await _archiumClient.UploadDocumentAsync(
-                file.Content, file.ContentType, file.FileName, cancellationToken);
+            var uploaded = await _archiumClient.UploadDocumentAsync(file, file.FileName, cancellationToken);
 
             if (uploaded is null)
                 return _errors.Fail<ArchiveFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
@@ -157,7 +156,7 @@ public class ExternalPortalService : IExternalPortalService
         var folderRequest = new UpdateFolderDocumentsRequest
         {
             Subject = uploadedFiles[0].FileName,
-            ParentId = request.FolderId,
+            ParentId = request.ArchiumFolderId,
             MetadataId = _archiumSettings.MetadataId,
             Documents = uploadedFiles
                 .Select(file => new FolderDocumentEntry { DocumentId = null, FileId = file.FileId })
@@ -165,14 +164,14 @@ public class ExternalPortalService : IExternalPortalService
         };
 
         var attached = await _archiumClient.AttachDocumentsToFolderAsync(
-            request.FolderId, folderRequest, cancellationToken);
+            request.ArchiumFolderId, folderRequest, cancellationToken);
 
         if (!attached)
             return _errors.Fail<ArchiveFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
         var result = new ArchiveFileResult
         {
-            ArchiumFolderId = request.FolderId,
+            ArchiumFolderId = request.ArchiumFolderId,
             ArchivedFile = new ArchivedFileDto
             {
                 FileName = uploadedFiles[0].FileName,
@@ -186,7 +185,7 @@ public class ExternalPortalService : IExternalPortalService
 
         _logger.LogInformation(
             "Archived {FileCount} file(s) into ARCHIUM folder {FolderId}: fileId={FileId}.",
-            request.Files.Count, request.FolderId, result.ArchivedFile.ArchiumFileId);
+            request.Files.Count, request.ArchiumFolderId, result.ArchivedFile.ArchiumFileId);
 
         return Result<ArchiveFileResult>.Ok(result);
     }
@@ -210,23 +209,6 @@ public class ExternalPortalService : IExternalPortalService
             return (false, ErrorCodes.PORTAL.UnsupportedArchiveFileType);
 
         //await using var stream = file.OpenReadStream();
-        //var isClean = await _antivirusScanner.IsCleanAsync(stream, fileName, cancellationToken);
-        //if (!isClean)
-        //    return (false, ErrorCodes.PORTAL.InvalidFileType);
-
-        return (true, null);
-    }
-
-    private async Task<(bool IsValid, string? ErrorCode)> ValidateFileAsync(
-        string fileName, byte[] content, CancellationToken cancellationToken)
-    {
-        if (content.Length > MaxFileBytes)
-            return (false, ErrorCodes.PORTAL.ArchiveFileTooLarge);
-
-        if (!AllowedExtensions.Contains(Path.GetExtension(fileName)))
-            return (false, ErrorCodes.PORTAL.UnsupportedArchiveFileType);
-
-        //using var stream = new MemoryStream(content);
         //var isClean = await _antivirusScanner.IsCleanAsync(stream, fileName, cancellationToken);
         //if (!isClean)
         //    return (false, ErrorCodes.PORTAL.InvalidFileType);
