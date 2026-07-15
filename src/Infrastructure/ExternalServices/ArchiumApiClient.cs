@@ -20,11 +20,11 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private const string FoldersEndpoint = "/api/v1/external-portal/folders";
-    private const string FilesEndpoint = "/api/v1/file/tempAndConvert";
-    private const string FilesEndpointTemp = "/api/v1/file/temp";
-    private const string TempBucketName = "temp";
-    private const string ReceivedDocumentsOpsEndpoint = "/api/v1/received-documents/ops";
+    private const string foldersEndpoint = "/api/v1/external-portal/folders";
+    private const string filesEndpoint = "/api/v1/file/tempAndConvert";
+    private const string filesEndpointTemp = "/api/v1/file/temp";
+    private const string tempBucketName = "temp";
+    private const string receivedDocumentsOpsEndpoint = "/api/v1/received-documents/ops";
 
     private readonly ArchiumClientSettings _settings;
 
@@ -37,8 +37,8 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     public async Task<FolderListResult?> GetFoldersAsync(long? parentId, CancellationToken cancellationToken = default)
     {
         var uri = parentId is null
-            ? FoldersEndpoint
-            : $"{FoldersEndpoint}?parentId={parentId}";
+            ? foldersEndpoint
+            : $"{foldersEndpoint}?parentId={parentId}";
 
         var request = new HttpRequestMessage(HttpMethod.Get, uri);
         var response = await SendRequestAsync(request, cancellationToken);
@@ -67,7 +67,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         if (parentFolderId is not null)
             content.Add(new StringContent(parentFolderId.Value.ToString()), "parentFolderId");
 
-        var request = new HttpRequestMessage(HttpMethod.Post, FoldersEndpoint)
+        var request = new HttpRequestMessage(HttpMethod.Post, foldersEndpoint)
         {
             Content = content
         };
@@ -88,7 +88,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     public async Task<RetrievedFileResult?> GetFileAsync(
         long fileId, string callerSystemId, CancellationToken cancellationToken = default)
     {
-        var uri = $"{FilesEndpoint}/{fileId}?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
+        var uri = $"{filesEndpoint}/{fileId}?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
 
         var request = new HttpRequestMessage(HttpMethod.Get, uri);
         var response = await SendRequestAsync(request, cancellationToken);
@@ -110,7 +110,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         await using var fileStream = file.OpenReadStream();
         using var content = new MultipartFormDataContent
         {
-            { new StringContent(TempBucketName), "bucketName" }
+            { new StringContent(tempBucketName), "bucketName" }
         };
 
         var fileContent = new StreamContent(fileStream);
@@ -118,7 +118,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
         content.Add(fileContent, "file", fileName);
 
-        var request = new HttpRequestMessage(HttpMethod.Post, FilesEndpoint)
+        var request = new HttpRequestMessage(HttpMethod.Post, filesEndpoint)
         {
             Content = content
         };
@@ -158,7 +158,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             AccompaningFiles = accompanyingFileIds.ToList()
         };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, ReceivedDocumentsOpsEndpoint)
+        var request = new HttpRequestMessage(HttpMethod.Post, receivedDocumentsOpsEndpoint)
         {
             Content = JsonContent.Create(payload, options: _jsonOptions)
         };
