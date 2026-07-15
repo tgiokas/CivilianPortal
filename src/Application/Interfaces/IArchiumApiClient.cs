@@ -18,11 +18,11 @@ public interface IArchiumApiClient
 
     /// Uploads a single file to ARCHIUM and returns its fileId, used for both the main
     /// document and each attachment 
-    Task<UploadedFileRef?> UploadDocumentAsync(
+    Task<ArchiumUploadResult?> UploadDocumentAsync(
         IFormFile file, string fileName, CancellationToken cancellationToken = default);
 
     /// Gettingthe protocol number assigned to an already-uploaded fileId
-    Task<ProtocolAssignmentResult?> GetProtocolForFileAsync(
+    Task<ArchiumProtocolResult?> GetProtocolForFileAsync(
         long fileId, string callerSystemId, CancellationToken cancellationToken = default);
 
     Task<ArchiveFileResult?> ArchiveFileAsync(

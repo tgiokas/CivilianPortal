@@ -96,7 +96,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         return JsonSerializer.Deserialize<RetrievedFileResult>(json, _jsonOptions);
     }
 
-    public async Task<UploadedFileRef?> UploadDocumentAsync(
+    public async Task<ArchiumUploadResult?> UploadDocumentAsync(
         IFormFile file, string fileName, CancellationToken cancellationToken = default)
     {
         await using var fileStream = file.OpenReadStream();
@@ -125,7 +125,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        var result = JsonSerializer.Deserialize<Result<TempAndConvertFileResult>>(json, _jsonOptions);
+        var result = JsonSerializer.Deserialize<Result<ArchiumUploadResult>>(json, _jsonOptions);
 
         if (result is null || !result.Success || result.Data is null)
         {
@@ -135,16 +135,11 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             return null;
         }
 
-        return new UploadedFileRef
-        {
-            PdfId = result.Data.PdfId,
-            Id = result.Data.Id,
-            BucketName = result.Data.BucketName
-        };
+        return result.Data;
     }
 
     /// PLACEHOLDER — path is a guess until ARCHIUM's real protocol-lookup contract is confirmed.
-    public async Task<ProtocolAssignmentResult?> GetProtocolForFileAsync(
+    public async Task<ArchiumProtocolResult?> GetProtocolForFileAsync(
         long fileId, string callerSystemId, CancellationToken cancellationToken = default)
     {
         var uri = $"{FilesEndpoint}/{fileId}/protocol?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
@@ -160,7 +155,8 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<ProtocolAssignmentResult>(json, _jsonOptions);
+        return JsonSerializer.Deserialize<ArchiumProtocolResult
+            >(json, _jsonOptions);
     }
 
     public async Task<ArchiveFileResult?> ArchiveFileAsync(
