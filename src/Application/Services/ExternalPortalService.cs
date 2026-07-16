@@ -190,13 +190,13 @@ public class ExternalPortalService : IExternalPortalService
         return Result<ArchiveFileResult>.Ok(result);
     }
 
-    public async Task<Result<RetrievedFileResult>> RetrieveFileAsync(long fileId, CancellationToken cancellationToken = default)
+    public async Task<Result<DownloadedFileResult>> RetrieveFileAsync(long fileId, CancellationToken cancellationToken = default)
     {
-        var result = await _archiumClient.GetFileAsync(fileId, _archiumSettings.CallerSystemId, cancellationToken);
+        var result = await _archiumClient.GetFileAsync(fileId, cancellationToken);
         if (result is null)
-            return _errors.Fail<RetrievedFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
+            return _errors.Fail<DownloadedFileResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);
 
-        return Result<RetrievedFileResult>.Ok(result);
+        return Result<DownloadedFileResult>.Ok(result);
     }
 
     private async Task<(bool IsValid, string? ErrorCode)> ValidateFileAsync(

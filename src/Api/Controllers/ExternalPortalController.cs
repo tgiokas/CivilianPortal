@@ -61,13 +61,14 @@ public class ExternalPortalController : ControllerBase
     }
 
     [HttpGet("files/{fileId:long}")]
-    public async Task<IActionResult> GetFile(long fileId, [FromQuery] string? callerSystemId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetFile(long fileId, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.RetrieveFileAsync(fileId, cancellationToken);
 
         if (!result.Success)
             return NotFound(result);
 
-        return Ok(result.Data);
+        var file = result.Data!;
+        return File(file.Content, file.ContentType, file.FileName ?? $"file-{fileId}");
     }
 }

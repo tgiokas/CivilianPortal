@@ -14,7 +14,8 @@ public interface IArchiumApiClient
         long? parentFolderId, string folderName, string folderCategory,
         CancellationToken cancellationToken = default);
 
-    Task<RetrievedFileResult?> GetFileAsync(long fileId, string callerSystemId, CancellationToken cancellationToken = default);
+    /// Downloads a file's raw bytes from ARCHIUM.
+    Task<DownloadedFileResult?> GetFileAsync(long fileId, CancellationToken cancellationToken = default);
 
     /// Uploads a single file to ARCHIUM and returns its fileId, used for both the main
     /// document and each attachment

@@ -22,6 +22,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
 
     private const string foldersEndpoint = "/api/v1/external-portal/folders";
     private const string uploadFileEndpoint = "/api/v1/file/temp";
+    private const string fileDownloadEndpoint = "/api/v1/file/";
     private const string tempBucketName = "temp";
     private const string protocolEndpoint = "/api/v1/received-documents/ops";
     private const string archiveFilesEndpoint = "/api/v1/folder/";
@@ -85,12 +86,15 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         return JsonSerializer.Deserialize<CreateFolderResult>(json, _jsonOptions);
     }
 
-    public async Task<RetrievedFileResult?> GetFileAsync(
-        long fileId, string callerSystemId, CancellationToken cancellationToken = default)
+    public async Task<DownloadedFileResult?> GetFileAsync(
+        long fileId, CancellationToken cancellationToken = default)
     {
-        var uri = $"{uploadFileEndpoint}/{fileId}?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{fileDownloadEndpoint}{fileId}");
 
-        var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.Add("roleId", _settings.RoleId);
+        request.Headers.Add("organizationUnitId", _settings.OrganizationUnitId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.AuthToken);
+
         var response = await SendRequestAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -100,8 +104,17 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             return null;
         }
 
-        var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<RetrievedFileResult>(json, _jsonOptions);
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+        var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
+            ?? response.Content.Headers.ContentDisposition?.FileName;
+
+        return new DownloadedFileResult
+        {
+            Content = bytes,
+            ContentType = contentType,
+            FileName = fileName?.Trim('"')
+        };
     }
 
     public async Task<UploadDocumentResult?> UploadDocumentAsync(

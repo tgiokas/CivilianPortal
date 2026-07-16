@@ -17,5 +17,5 @@ public interface IExternalPortalService
     Task<Result<ArchiveFileResult>> SubmitArchiveAsync(
         ArchiveFileRequest request, CancellationToken cancellationToken = default);
 
-    Task<Result<RetrievedFileResult>> RetrieveFileAsync(long fileId, CancellationToken cancellationToken = default);
+    Task<Result<DownloadedFileResult>> RetrieveFileAsync(long fileId, CancellationToken cancellationToken = default);
 }
