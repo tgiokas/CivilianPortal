@@ -22,7 +22,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
 
     private const string foldersEndpoint = "/api/v1/external-portal/folders";
     private const string uploadFileEndpoint = "/api/v1/file/temp";
-    private const string fileDownloadEndpoint = "/api/v1/file/";
+    private const string downloadEndpoint = "/api/v1/file/";
     private const string tempBucketName = "temp";
     private const string protocolEndpoint = "/api/v1/received-documents/ops";
     private const string archiveFilesEndpoint = "/api/v1/folder/";
@@ -89,7 +89,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     public async Task<DownloadedFileResult?> GetFileAsync(
         long fileId, CancellationToken cancellationToken = default)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, $"{fileDownloadEndpoint}{fileId}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{downloadEndpoint}{fileId}");
 
         request.Headers.Add("roleId", _settings.RoleId);
         request.Headers.Add("organizationUnitId", _settings.OrganizationUnitId);
