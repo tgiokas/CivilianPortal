@@ -21,10 +21,10 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     };
 
     private const string foldersEndpoint = "/api/v1/external-portal/folders";
-    private const string filesEndpoint = "/api/v1/file/tempAndConvert";
-    private const string filesEndpointTemp = "/api/v1/file/temp";
+    private const string uploadFileEndpoint = "/api/v1/file/temp";
     private const string tempBucketName = "temp";
-    private const string receivedDocumentsOpsEndpoint = "/api/v1/received-documents/ops";
+    private const string protocolEndpoint = "/api/v1/received-documents/ops";
+    private const string archiveFilesEndpoint = "/api/v1/folder/";
 
     private readonly ArchiumClientSettings _settings;
 
@@ -88,7 +88,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     public async Task<RetrievedFileResult?> GetFileAsync(
         long fileId, string callerSystemId, CancellationToken cancellationToken = default)
     {
-        var uri = $"{filesEndpoint}/{fileId}?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
+        var uri = $"{uploadFileEndpoint}/{fileId}?callerSystemId={Uri.EscapeDataString(callerSystemId)}";
 
         var request = new HttpRequestMessage(HttpMethod.Get, uri);
         var response = await SendRequestAsync(request, cancellationToken);
@@ -118,7 +118,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType);
         content.Add(fileContent, "file", fileName);
 
-        var request = new HttpRequestMessage(HttpMethod.Post, filesEndpoint)
+        var request = new HttpRequestMessage(HttpMethod.Post, uploadFileEndpoint)
         {
             Content = content
         };
@@ -158,7 +158,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             AccompaningFiles = accompanyingFileIds.ToList()
         };
 
-        var request = new HttpRequestMessage(HttpMethod.Post, receivedDocumentsOpsEndpoint)
+        var request = new HttpRequestMessage(HttpMethod.Post, protocolEndpoint)
         {
             Content = JsonContent.Create(payload, options: _jsonOptions)
         };
@@ -177,10 +177,10 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         return JsonSerializer.Deserialize<ProtocolDocumentResult>(json, _jsonOptions);
     }
 
-    public async Task<bool> AttachDocumentsToFolderAsync(
+    public async Task<bool> ArchiveDocumentsToFolderAsync(
         long folderId, UpdateFolderDocumentsRequest folderRequest, CancellationToken cancellationToken = default)
     {
-        var request = new HttpRequestMessage(HttpMethod.Put, $"/api/v1/folder/{folderId}")
+        var request = new HttpRequestMessage(HttpMethod.Put, $"{archiveFilesEndpoint}/{folderId}")
         {
             Content = JsonContent.Create(folderRequest, options: _jsonOptions)
         };

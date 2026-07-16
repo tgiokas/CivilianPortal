@@ -163,7 +163,7 @@ public class ExternalPortalService : IExternalPortalService
                 .ToList()
         };
 
-        var attached = await _archiumClient.AttachDocumentsToFolderAsync(
+        var attached = await _archiumClient.ArchiveDocumentsToFolderAsync(
             request.ArchiumFolderId, folderRequest, cancellationToken);
 
         if (!attached)
