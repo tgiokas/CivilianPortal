@@ -105,14 +105,13 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-        var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
         var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
             ?? response.Content.Headers.ContentDisposition?.FileName;
 
         return new DownloadedFileResult
         {
             Content = bytes,
-            ContentType = contentType,
+            ContentType = "application/octet-stream",
             FileName = fileName?.Trim('"')
         };
     }
