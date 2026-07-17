@@ -22,10 +22,10 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
 
     private const string foldersEndpoint = "/api/v1/external-portal/folders";
     private const string uploadFileEndpoint = "/api/v1/file/temp";
-    private const string downloadEndpoint = "/api/v1/file/";
+    private const string downloadEndpoint = "/api/v1/file";
     private const string tempBucketName = "temp";
     private const string protocolEndpoint = "/api/v1/received-documents/ops";
-    private const string archiveFilesEndpoint = "/api/v1/folder/";
+    private const string archiveFilesEndpoint = "/api/v1/folder";
 
     private readonly ArchiumClientSettings _settings;
 
@@ -89,7 +89,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     public async Task<DownloadedFileResult?> GetFileAsync(
         long fileId, CancellationToken cancellationToken = default)
     {
-        var request = new HttpRequestMessage(HttpMethod.Get, $"{downloadEndpoint}{fileId}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{downloadEndpoint}/{fileId}");
 
         request.Headers.Add("roleId", _settings.RoleId);
         request.Headers.Add("organizationUnitId", _settings.OrganizationUnitId);
@@ -105,13 +105,14 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         }
 
         var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
         var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
             ?? response.Content.Headers.ContentDisposition?.FileName;
 
         return new DownloadedFileResult
         {
             Content = bytes,
-            ContentType = "application/octet-stream",
+            ContentType = contentType,
             FileName = fileName?.Trim('"')
         };
     }
@@ -190,7 +191,7 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
     }
 
     public async Task<bool> ArchiveDocumentsToFolderAsync(
-        long folderId, UpdateFolderDocumentsRequest folderRequest, CancellationToken cancellationToken = default)
+        long folderId, UpdateFolderRequest folderRequest, CancellationToken cancellationToken = default)
     {
         var request = new HttpRequestMessage(HttpMethod.Put, $"{archiveFilesEndpoint}/{folderId}")
         {

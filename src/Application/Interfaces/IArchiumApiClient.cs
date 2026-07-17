@@ -29,5 +29,5 @@ public interface IArchiumApiClient
 
     /// Attaches already-uploaded documents (by fileId) to a folder.
     Task<bool> ArchiveDocumentsToFolderAsync(
-        long folderId, UpdateFolderDocumentsRequest request, CancellationToken cancellationToken = default);
+        long folderId, UpdateFolderRequest request, CancellationToken cancellationToken = default);
 }

@@ -7,7 +7,5 @@ public class UploadDocumentResult
     [JsonPropertyName("id")]
     public long Id { get; set; }
     [JsonPropertyName("bucketName")]
-    public string BucketName { get; set; } = string.Empty;
-    [JsonPropertyName("pdfId")]
-    public long PdfId { get; set; }
+    public string BucketName { get; set; } = string.Empty;   
 }

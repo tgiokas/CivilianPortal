@@ -23,7 +23,7 @@ public class KafkaSettings
     public int SocketTimeoutMs { get; set; } = 60000;
 
 
-    // Producer
+    // Producer     
     public string SubmittedTopic { get; set; } = string.Empty;
     public string NotificationTopic { get; set; } = string.Empty;
 
