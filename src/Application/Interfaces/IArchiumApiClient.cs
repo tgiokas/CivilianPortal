@@ -11,8 +11,7 @@ public interface IArchiumApiClient
     Task<FolderListResult?> GetFoldersAsync(long? parentId, CancellationToken cancellationToken = default);
 
     Task<CreateFolderResult?> CreateFolderAsync(
-        long? parentFolderId, string folderName, string folderCategory,
-        CancellationToken cancellationToken = default);
+        string subject, long? parentId, CancellationToken cancellationToken = default);
 
     /// Downloads a file's raw bytes from ARCHIUM.
     Task<DownloadedFileResult?> GetFileAsync(long fileId, CancellationToken cancellationToken = default);

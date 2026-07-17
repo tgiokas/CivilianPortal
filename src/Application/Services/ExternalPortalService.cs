@@ -47,7 +47,7 @@ public class ExternalPortalService : IExternalPortalService
         CreateFolderRequest request, CancellationToken cancellationToken = default)
     {
         var result = await _archiumClient.CreateFolderAsync(
-            request.ParentFolderId, request.FolderName, request.FolderCategory, cancellationToken);
+            request.Subject, request.ParentId, cancellationToken);
 
         if (result is null)
             return _errors.Fail<CreateFolderResult>(ErrorCodes.PORTAL.ArchiumServiceUnavailable);

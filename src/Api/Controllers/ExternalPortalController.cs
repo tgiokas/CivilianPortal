@@ -28,7 +28,7 @@ public class ExternalPortalController : ControllerBase
     }
 
     [HttpPost("external-portal/folders")]
-    public async Task<IActionResult> CreateFolder([FromForm] CreateFolderRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateFolder([FromBody] CreateFolderRequest request, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.CreateFolderAsync(request, cancellationToken);
 

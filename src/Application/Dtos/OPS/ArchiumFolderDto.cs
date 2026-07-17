@@ -15,13 +15,11 @@ public class FolderListResult
 
 public class CreateFolderRequest
 {
-    public long? ParentFolderId { get; set; }
-    public string FolderName { get; set; } = string.Empty;
-    public string FolderCategory { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public long? ParentId { get; set; }
 }
 
 public class CreateFolderResult
 {
-    public long ArchiumFolderId { get; set; }
-    public DateTime Timestamp { get; set; }
+    public long Id { get; set; }
 }

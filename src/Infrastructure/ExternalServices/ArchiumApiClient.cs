@@ -20,7 +20,8 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    private const string foldersEndpoint = "/api/v1/external-portal/folders";
+    private const string foldersEndpoint = "/api/v1/folder/content/ops";
+    private const string createFolderEndpoint = "/api/v1/folder/ops";
     private const string uploadFileEndpoint = "/api/v1/file/temp";
     private const string downloadEndpoint = "/api/v1/file";
     private const string tempBucketName = "temp";
@@ -42,6 +43,12 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             : $"{foldersEndpoint}?parentId={parentId}";
 
         var request = new HttpRequestMessage(HttpMethod.Get, uri);
+
+        request.Headers.Add("roleId", _settings.RoleId);
+        request.Headers.Add("organizationUnitId", _settings.OrganizationUnitId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.AuthToken);
+        request.Headers.Add("Cookie", _settings.Cookie);
+
         var response = await SendRequestAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
@@ -51,39 +58,50 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             return null;
         }
 
+        // TODO: response shape for this endpoint is not yet confirmed with ARCHIUM - revisit once known.
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
         return JsonSerializer.Deserialize<FolderListResult>(json, _jsonOptions);
     }
 
     public async Task<CreateFolderResult?> CreateFolderAsync(
-        long? parentFolderId, string folderName, string folderCategory,
-        CancellationToken cancellationToken = default)
+        string subject, long? parentId, CancellationToken cancellationToken = default)
     {
-        using var content = new MultipartFormDataContent
+        var payload = new CreateFolderRequest
         {
-            { new StringContent(folderName), "folderName" },
-            { new StringContent(folderCategory), "folderCategory" }
+            Subject = subject,
+            ParentId = parentId
         };
 
-        if (parentFolderId is not null)
-            content.Add(new StringContent(parentFolderId.Value.ToString()), "parentFolderId");
-
-        var request = new HttpRequestMessage(HttpMethod.Post, foldersEndpoint)
+        var request = new HttpRequestMessage(HttpMethod.Post, createFolderEndpoint)
         {
-            Content = content
+            Content = JsonContent.Create(payload, options: _jsonOptions)
         };
+
+        request.Headers.Add("roleId", _settings.RoleId);
+        request.Headers.Add("organizationUnitId", _settings.OrganizationUnitId);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.AuthToken);
 
         var response = await SendRequestAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            _logger.LogError("ARCHIUM returned {StatusCode} creating folder '{FolderName}'",
-                (int)response.StatusCode, folderName);
+            _logger.LogError("ARCHIUM returned {StatusCode} creating folder '{Subject}'",
+                (int)response.StatusCode, subject);
             return null;
         }
 
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<CreateFolderResult>(json, _jsonOptions);
+        var result = JsonSerializer.Deserialize<Result<CreateFolderResult>>(json, _jsonOptions);
+
+        if (result is null || !result.Success || result.Data is null)
+        {
+            _logger.LogError(
+                "ARCHIUM returned unsuccessful create-folder response for '{Subject}': {ErrorCode} {Message}",
+                subject, result?.ErrorCode, result?.Message);
+            return null;
+        }
+
+        return result.Data;
     }
 
     public async Task<DownloadedFileResult?> GetFileAsync(
