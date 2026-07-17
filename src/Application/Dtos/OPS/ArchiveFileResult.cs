@@ -3,9 +3,7 @@ namespace CitizenPortal.Application.Dtos;
 public class ArchiveFileResult
 {
     public long ArchiumFolderId { get; set; }
-    public ArchivedFileDto ArchivedFile { get; set; } = new();
-    public string? ProtocolNumber { get; set; }
-    public string? ProtocolYear { get; set; }
+    public ArchivedFileDto ArchivedFile { get; set; } = new();   
     public DateTime Timestamp { get; set; }
 }
 

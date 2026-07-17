@@ -153,8 +153,7 @@ public class ExternalPortalService : IExternalPortalService
 
         // Step 2 - attach the uploaded files to the target folder.
         var folderRequest = new UpdateFolderRequest
-        {
-            Subject = uploadedFiles[0].FileName,
+        {            
             ParentId = request.ArchiumFolderId,
             MetadataId = _archiumSettings.MetadataId,
             Documents = uploadedFiles
