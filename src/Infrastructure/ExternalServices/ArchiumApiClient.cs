@@ -58,9 +58,18 @@ public class ArchiumApiClient : ApiClientBase, IArchiumApiClient
             return null;
         }
 
-        // TODO: response shape for this endpoint is not yet confirmed with ARCHIUM - revisit once known.
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
-        return JsonSerializer.Deserialize<FolderListResult>(json, _jsonOptions);
+        var result = JsonSerializer.Deserialize<Result<FolderListResult>>(json, _jsonOptions);
+
+        if (result is null || !result.Success || result.Data is null)
+        {
+            _logger.LogError(
+                "ARCHIUM returned unsuccessful folder-listing response (parentId={ParentId}): {ErrorCode} {Message}",
+                parentId, result?.ErrorCode, result?.Message);
+            return null;
+        }
+
+        return result.Data;
     }
 
     public async Task<CreateFolderResult?> CreateFolderAsync(
