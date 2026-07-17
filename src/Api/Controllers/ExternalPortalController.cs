@@ -6,7 +6,7 @@ using CitizenPortal.Application.Interfaces;
 namespace CitizenPortal.Api.Controllers;
 
 [ApiController]
-[Route("api/v1")]
+[Route("[controller]")]
 public class ExternalPortalController : ControllerBase
 {
     private readonly IExternalPortalService _externalPortalService;
@@ -16,7 +16,7 @@ public class ExternalPortalController : ControllerBase
         _externalPortalService = externalPortalService;
     }
 
-    [HttpGet("external-portal/folders")]
+    [HttpGet("folders")]
     public async Task<IActionResult> GetFolders([FromQuery] long? parentId, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.ListFoldersAsync(parentId, cancellationToken);
@@ -27,7 +27,7 @@ public class ExternalPortalController : ControllerBase
         return Ok(result.Data);
     }
 
-    [HttpPost("external-portal/folders")]
+    [HttpPost("folders")]
     public async Task<IActionResult> CreateFolder([FromBody] CreateFolderRequest request, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.CreateFolderAsync(request, cancellationToken);
@@ -38,7 +38,7 @@ public class ExternalPortalController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, result.Data);
     }
 
-    [HttpPost("files/upload")]
+    [HttpPost("file/upload")]
     public async Task<IActionResult> UploadFile([FromForm] SubmitDocumentRequest request, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.SubmitUploadAsync(request, cancellationToken);
@@ -49,7 +49,7 @@ public class ExternalPortalController : ControllerBase
         return Ok(result.Data);
     }
 
-    [HttpPost("external-portal/archive")]
+    [HttpPost("file/archive")]
     public async Task<IActionResult> ArchiveFiles([FromForm] ArchiveFileRequest form, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.SubmitArchiveAsync(form, cancellationToken);
@@ -60,7 +60,7 @@ public class ExternalPortalController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, result.Data);
     }
 
-    [HttpGet("files/{fileId:long}")]
+    [HttpGet("file/{fileId:long}")]
     public async Task<IActionResult> GetFile(long fileId, CancellationToken cancellationToken)
     {
         var result = await _externalPortalService.RetrieveFileAsync(fileId, cancellationToken);

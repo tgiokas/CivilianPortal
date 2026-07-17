@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace CitizenPortal.Application.Dtos;
 
-/// Multipart form body for POST /api/v1/files/upload.
+/// Multipart form body
 public class SubmitDocumentRequest
 {
     public string CallerSystemId { get; set; } = "OPS";

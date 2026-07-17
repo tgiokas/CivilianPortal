@@ -1,5 +1,3 @@
-using System.Text.Json.Serialization;
-
 namespace CitizenPortal.Application.Dtos;
 
 public class SubmitDocumentResult
