@@ -170,20 +170,15 @@ public class ExternalPortalService : IExternalPortalService
         var result = new ArchiveFileResult
         {
             ArchiumFolderId = request.ArchiumFolderId,
-            ArchivedFile = new ArchivedFileDto
-            {
-                FileName = uploadedFiles[0].FileName,
-                ArchiumFileId = uploadedFiles[0].FileId,
-                Attachments = uploadedFiles.Skip(1)
-                    .Select(file => new ArchivedAttachmentDto { FileName = file.FileName, ArchiumFileId = file.FileId })
-                    .ToList()
-            },
+            ArchivedFile = uploadedFiles
+                .Select(file => new ArchivedAttachmentDto { FileName = file.FileName, ArchiumFileId = file.FileId })
+                .ToList(),
             Timestamp = DateTime.UtcNow
         };
 
         _logger.LogInformation(
-            "Archived {FileCount} file(s) into ARCHIUM folder {FolderId}: fileId={FileId}.",
-            request.Files.Count, request.ArchiumFolderId, result.ArchivedFile.ArchiumFileId);
+            "Archived {FileCount} file(s) into ARCHIUM folder {FolderId}: fileIds={FileIds}.",
+            request.Files.Count, request.ArchiumFolderId, string.Join(", ", uploadedFiles.Select(file => file.FileId)));
 
         return Result<ArchiveFileResult>.Ok(result);
     }
