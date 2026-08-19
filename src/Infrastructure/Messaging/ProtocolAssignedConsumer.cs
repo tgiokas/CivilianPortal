@@ -301,7 +301,7 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
             var env = JsonSerializer.Deserialize<KafkaMessage<ProtocolAssignedEvent>>(payload, JsonOpts);
             if (env?.Content is not null) return env.Content;
         }
-        catch (JsonException) { /* fall through */ }
+        catch { /* fall through */ }
 
         // 2) Envelope with string Content
         try
@@ -310,14 +310,14 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
             if (!string.IsNullOrWhiteSpace(envRaw?.Content))
                 return JsonSerializer.Deserialize<ProtocolAssignedEvent>(envRaw.Content, JsonOpts);
         }
-        catch (JsonException) { /* fall through */ }
+        catch { /* fall through */ }
 
         // 3) Bare DTO
         try
         {
             return JsonSerializer.Deserialize<ProtocolAssignedEvent>(payload, JsonOpts);
         }
-        catch (JsonException) { }
+        catch { }
 
         return null;
     }
