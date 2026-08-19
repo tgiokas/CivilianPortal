@@ -30,8 +30,8 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
     // Retry policy for transient update failures (e.g. DB blip).
     // 5 attempts with exponential backoff (1+2+4+8s ≈ 15s total) stays well under
     // MaxPollIntervalMs, so Kafka won't consider the consumer dead mid-retry.
-    private const int MaxUpdateAttempts = 5;
-    private const int UpdateRetryBaseMs = 1000;
+    private const int MaxDeliveryAttempts = 5;
+    private const int DeliveryRetryBaseMs = 1000;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -43,9 +43,8 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
         IOptions<KafkaSettings> kafkaOptions,
         ILogger<ProtocolAssignedConsumer> logger)
     {
-        _scopeFactory = scopeFactory;
         _logger = logger;
-
+        _scopeFactory = scopeFactory;
         var settings = kafkaOptions.Value;
         _topic = settings.ProtocolTopic;
 
@@ -86,6 +85,7 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
             {
                 consumer = BuildConsumer();
 
+                // Subscribe to topics
                 consumer.Subscribe(_topic);
                 _logger.LogInformation("Subscribed to topic {Topic}.", _topic);
 
@@ -176,11 +176,11 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
                     continue;
                 }
 
-                // Retry transient update failures in place, BEFORE committing, so the
+                // Retry transient delivery failures in place, BEFORE committing, so the
                 // offset only advances once the message is truly handled.
-                await UpdateWithRetriesAsync(payload, result.TopicPartitionOffset, stoppingToken);
+                await DeliverWithRetriesAsync(payload, result.TopicPartitionOffset, stoppingToken);
 
-                consumer.Commit(result); // success (or terminal outcome already logged)
+                consumer.Commit(result); // success
                 _logger.LogInformation("Offset committed at {TPO}", result.TopicPartitionOffset);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -224,7 +224,7 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
     /// Terminal outcomes (unknown application, already protocoled) are logged and treated as done so the offset can be committed.
     /// After the retry budget is exhausted the message is dropped with a Critical log and this returns,
     /// allowing the caller to commit so the partition is not blocked indefinitely.
-    private async Task UpdateWithRetriesAsync(
+    private async Task DeliverWithRetriesAsync(
         ProtocolAssignedEvent payload, TopicPartitionOffset tpo, CancellationToken ct)
     {
         for (int attempt = 1; ; attempt++)
@@ -248,7 +248,7 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
                     return;
                 }
 
-                if (attempt >= MaxUpdateAttempts)
+                if (attempt >= MaxDeliveryAttempts)
                 {
                     _logger.LogCritical(
                         "Dropping message at {TPO} for {PublicId} after {Attempts} transient failures (ErrorCode={ErrorCode}): {Message}.",
@@ -256,10 +256,10 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
                     return;
                 }
 
-                var delay = TimeSpan.FromMilliseconds(UpdateRetryBaseMs * Math.Pow(2, attempt - 1));
+                var delay = TimeSpan.FromMilliseconds(DeliveryRetryBaseMs * Math.Pow(2, attempt - 1));
                 _logger.LogWarning(
                     "Transient update failure at {TPO} for {PublicId} (attempt {Attempt}/{Max}, ErrorCode={ErrorCode}): {Message}. Retrying in {Delay}.",
-                    tpo, payload.ApplicationPublicId, attempt, MaxUpdateAttempts,
+                    tpo, payload.ApplicationPublicId, attempt, MaxDeliveryAttempts,
                     updateResult.ErrorCode, updateResult.Message, delay);
 
                 await Task.Delay(delay, ct);
@@ -270,7 +270,7 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
             }
             catch (Exception ex)
             {
-                if (attempt >= MaxUpdateAttempts)
+                if (attempt >= MaxDeliveryAttempts)
                 {
                     _logger.LogCritical(ex,
                         "Dropping message at {TPO} for {PublicId} after {Attempts} unexpected failures.",
@@ -278,10 +278,10 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
                     return;
                 }
 
-                var delay = TimeSpan.FromMilliseconds(UpdateRetryBaseMs * Math.Pow(2, attempt - 1));
+                var delay = TimeSpan.FromMilliseconds(DeliveryRetryBaseMs * Math.Pow(2, attempt - 1));
                 _logger.LogWarning(ex,
                     "Unexpected update failure at {TPO} for {PublicId} (attempt {Attempt}/{Max}); retrying in {Delay}.",
-                    tpo, payload.ApplicationPublicId, attempt, MaxUpdateAttempts, delay);
+                    tpo, payload.ApplicationPublicId, attempt, MaxDeliveryAttempts, delay);
 
                 await Task.Delay(delay, ct);
             }
