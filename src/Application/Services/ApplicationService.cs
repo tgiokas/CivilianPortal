@@ -263,6 +263,17 @@ public class ApplicationService : IApplicationService
                 application.PublicId, request.UserId, uploadedDocs.Count - 1);
 
             /// Send email
+            var emailAttachments = application.Documents
+                .Where(d => d.Kind == ApplicationDocumentKind.Attachment)
+                .Select(d => new EmailAttachmentDto
+                {
+                    Bucket = d.StorageBucket,
+                    Key = d.StorageKey,
+                    FileName = d.FileName,
+                    ContentType = d.ContentType
+                })
+                .ToList();
+
             await _emailSender.SendEmailAsync(new NotificationEmailDto
             {
                 Recipient = application.Email,
@@ -270,7 +281,8 @@ public class ApplicationService : IApplicationService
                 Message = $"Σας γνωρίζουμε ότι η αίτησή σας υπεβλήθη με επιτυχία." +
                     $"<br>Ακολουθεί αντίγραφο της αίτησής σας: " +
                     $"<br>{application.Body}" +
-                    $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας."
+                    $"<br><br> Ευχαριστούμε που επικοινωνήσατε μαζί μας.",
+                Attachments = emailAttachments.Count > 0 ? emailAttachments : null
             }, _kafkaSettings.NotificationTopic, cancellationToken);
 
             return Result<ApplicationSubmittedDto>.Ok(new ApplicationSubmittedDto
