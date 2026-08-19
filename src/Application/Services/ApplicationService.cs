@@ -13,7 +13,7 @@ using CitizenPortal.Application.Extensions;
 using CitizenPortal.Domain.Entities;
 using CitizenPortal.Domain.Enums;
 using CitizenPortal.Domain.Interfaces;
-
+using CitizenPortal.Application.Constants;
 
 namespace CitizenPortal.Application.Services;
 
@@ -23,12 +23,7 @@ public class ApplicationService : IApplicationService
     private const string ApplicationFormFileName = "application-form.pdf";
     private const string ApplicationFormContentType = "application/pdf";
     private const string ApplicationFormKeyTemplate = "applications/{0}/generated/application-form.pdf";
-    private const long MaxAttachmentBytes = 50L * 1024 * 1024; // 50 MB — matches Kestrel MaxRequestBodySize
-    private const long MaxTotalAttachmentBytes = 50L * 1024 * 1024; // 50 MB aggregate cap per submission
-    private const int MaxPdfBodyText = 2000; // 2000 chars max for PDF body text
-    private const int MaxSubjectLength = 500; // matches Applications.Subject column
-    private const int MaxEmailLength = 320;   // matches Applications.Email column
-    private const int MaxAttachmentCount = 10;    
+
     private static readonly HashSet<string> AllowedAttachmentExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".pdf", ".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff",
@@ -168,11 +163,11 @@ public class ApplicationService : IApplicationService
         {
             foreach (var file in files)
             {
-                if (file.Length > MaxAttachmentBytes)
+                if (file.Length > SizeLimitsConstants.MaxAttachmentBytes)
                 {
                     _logger.LogWarning(
                         "Attachment {FileName} rejected: size {Size} bytes exceeds the {Limit} MB limit.",
-                        file.FileName, file.Length, MaxAttachmentBytes / 1024 / 1024);
+                        file.FileName, file.Length, SizeLimitsConstants.MaxAttachmentBytes / 1024 / 1024);
                     await CleanupUploadedFilesAsync(uploadedDocs, cancellationToken);
                     return _errors.Fail<ApplicationSubmittedDto>(ErrorCodes.PORTAL.FileTooLarge);
                 }
@@ -434,35 +429,35 @@ public class ApplicationService : IApplicationService
         // Subject
         if (string.IsNullOrWhiteSpace(request.Subject))
             errorCodes.Add(ErrorCodes.PORTAL.ApplicationSubjectRequired);
-        else if (request.Subject.Length > MaxSubjectLength)
+        else if (request.Subject.Length > SizeLimitsConstants.MaxSubjectLength)
             errorCodes.Add(ErrorCodes.PORTAL.ApplicationSubjectTooLong);
 
         // Email
         if (string.IsNullOrWhiteSpace(request.Email))
             errorCodes.Add(ErrorCodes.PORTAL.ApplicationEmailRequired);
-        else if (request.Email.Length > MaxEmailLength
+        else if (request.Email.Length > SizeLimitsConstants.MaxEmailLength
                  || !new EmailAddressAttribute().IsValid(request.Email))
             errorCodes.Add(ErrorCodes.PORTAL.ApplicationEmailInvalid);
 
         // Body
         if (string.IsNullOrWhiteSpace(request.Body))
             errorCodes.Add(ErrorCodes.PORTAL.ApplicationBodyRequired);
-        else if (request.Body.Length > MaxPdfBodyText)
+        else if (request.Body.Length > SizeLimitsConstants.MaxPdfBodyText)
             errorCodes.Add(ErrorCodes.PORTAL.ApplicationBodyTooLong);
 
         // Attachments
         if (files is not null && files.Count > 0)
         {
-            if (files.Count > MaxAttachmentCount)
+            if (files.Count > SizeLimitsConstants.MaxAttachmentCount)
                 errorCodes.Add(ErrorCodes.PORTAL.TooManyAttachments);
 
             if (files.Any(f => !AllowedAttachmentExtensions.Contains(Path.GetExtension(f.FileName))))
                 errorCodes.Add(ErrorCodes.PORTAL.InvalidFileType);
 
-            if (files.Any(f => f.Length > MaxAttachmentBytes))
+            if (files.Any(f => f.Length > SizeLimitsConstants.MaxAttachmentBytes))
                 errorCodes.Add(ErrorCodes.PORTAL.FileTooLarge);
 
-            if (files.Sum(f => f.Length) > MaxTotalAttachmentBytes)
+            if (files.Sum(f => f.Length) > SizeLimitsConstants.MaxTotalAttachmentBytes)
                 errorCodes.Add(ErrorCodes.PORTAL.TotalAttachmentSizeExceeded);
         }
 

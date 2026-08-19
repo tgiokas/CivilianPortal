@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 using CitizenPortal.Application.Interfaces;
@@ -6,6 +7,11 @@ using CitizenPortal.Application.Dtos;
 
 namespace CitizenPortal.Api.Controllers;
 
+/// Citizen SPA surface: citizens obtain their token via the browser authorization-code
+/// flow through oauth2-proxy, then call these endpoints with
+/// <c>Authorization: Bearer &lt;access_token&gt;</c> (azp = citizen-app). OPS service-account
+/// tokens are rejected.
+//[Authorize(Policy = "CitizenPortal")]
 [ApiController]
 [Route("[controller]")]
 public class ApplicationController : ControllerBase

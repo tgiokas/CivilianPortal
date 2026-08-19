@@ -11,6 +11,7 @@ public static class ApplicationServiceRegistration
         services.AddScoped<IApplicationService, ApplicationService>();
         services.AddScoped<IAuthenticationService, AuthenticationService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IExternalPortalService, ExternalPortalService>();
         return services;
     }
 }

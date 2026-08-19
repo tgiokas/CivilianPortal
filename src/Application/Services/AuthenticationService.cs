@@ -39,7 +39,14 @@ public class AuthenticationService : IAuthenticationService
 
         if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
         {
+            var keycloakUser = await _keycloakClientAuth.GetUserByNameAsync(request.Username);
+            if (keycloakUser != null)
+        {
             return _errors.Fail<LoginResponseDto>(ErrorCodes.PORTAL.AuthenticationFailed);
+            }
+
+            var user = await _keycloakClientAuth.CreateUserAsync(request.Username, request.Password);
+            tokenResponse = await _keycloakClientAuth.GetUserAccessTokenAsync(request.Username, request.Password);
         }
 
         // Parse JWT claims and auto-provision citizen in Citizen-Portal DB
@@ -109,6 +116,22 @@ public class AuthenticationService : IAuthenticationService
             Refresh_token = tokenResponse.Refresh_token ?? string.Empty,
             Expires_in = tokenResponse.Expires_in ?? 0
         });
+    }
+
+    public async Task<Result<TokenDto>> GetOpsAccessTokenAsync(string clientId, string clientSecret)
+    {
+        if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
+        {
+            return Result<TokenDto>.Fail("clientId and clientSecret are required.");
+        }
+
+        var tokenResponse = await _keycloakClientAuth.GetClientCredentialsTokenAsync(clientId, clientSecret);
+        if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.Access_token))
+        {
+            return Result<TokenDto>.Fail("Failed to retrieve OPS access token from Keycloak.");
+        }
+
+        return Result<TokenDto>.Ok(tokenResponse);
     }
 
     public async Task<Result<bool>> LogoutAsync(string refreshToken)

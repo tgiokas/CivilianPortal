@@ -94,31 +94,6 @@
       "attributes" : { }
     } ],
     "client" : {
-      "citizen-app" : [ {
-        "id" : "72aa3735-528d-4e11-876f-843d684d363f",
-        "name" : "testrole",
-        "description" : "testrole descr",
-        "composite" : false,
-        "clientRole" : true,
-        "containerId" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
-        "attributes" : { }
-      }, {
-        "id" : "ae33f366-f49e-4d18-9305-00e3b8fcb5e7",
-        "name" : "admin",
-        "description" : "admin description",
-        "composite" : false,
-        "clientRole" : true,
-        "containerId" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
-        "attributes" : { }
-      }, {
-        "id" : "f3aa993d-eb26-4c94-8bae-ab650008777a",
-        "name" : "viewer",
-        "description" : "Viewer role for the citizen-app client",
-        "composite" : false,
-        "clientRole" : true,
-        "containerId" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
-        "attributes" : { }
-      }],
       "realm-management" : [ {
         "id" : "8ebad270-fe20-4d2d-89cf-30be32b97c4f",
         "name" : "manage-realm",
@@ -373,6 +348,23 @@
         "clientRole" : true,
         "containerId" : "70967b83-7881-4419-b711-803088dd5ad8",
         "attributes" : { }
+      } ],
+      "citizen-app" : [ {
+        "id" : "ae33f366-f49e-4d18-9305-00e3b8fcb5e7",
+        "name" : "admin",
+        "description" : "admin description",
+        "composite" : false,
+        "clientRole" : true,
+        "containerId" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
+        "attributes" : { }
+      }, {
+        "id" : "f3aa993d-eb26-4c94-8bae-ab650008777a",
+        "name" : "viewer",
+        "description" : "Viewer role for the citizen-app client",
+        "composite" : false,
+        "clientRole" : true,
+        "containerId" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
+        "attributes" : { }
       } ]
     }
   },
@@ -430,7 +422,6 @@
     "requiredActions" : [ ],
     "realmRoles" : [ "default-roles-citizenrealm" ],
     "clientRoles" : {
-      "citizen-app" : [ "uma_protection" ],
       "realm-management" : [ "view-users", "query-users", "manage-users", "manage-clients" ]
     },
     "notBefore" : 0,
@@ -443,6 +434,7 @@
     "email" : "testuser@gmail.com",
     "emailVerified" : true,
     "enabled" : true,
+    "createdTimestamp" : 1777996262078,
     "totp" : false,
     "credentials" : [ {
       "id" : "794b81b7-ca39-43b5-9494-2a793fb0f0fc",
@@ -572,96 +564,6 @@
     "defaultClientScopes" : [ "web-origins", "acr", "roles", "profile", "basic", "email" ],
     "optionalClientScopes" : [ "address", "phone", "organization", "offline_access", "microprofile-jwt" ]
   }, {
-    "id" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
-    "clientId" : "citizen-app",
-    "name" : "",
-    "description" : "",
-    "rootUrl" : "",
-    "adminUrl" : "",
-    "baseUrl" : "",
-    "surrogateAuthRequired" : false,
-    "enabled" : true,
-    "alwaysDisplayInConsole" : false,
-    "clientAuthenticatorType" : "client-secret",
-    "secret" : "rpC8odnaEbiwKKxVwcg8yle2bobgFUA2",
-    "redirectUris" : [ "https://localhost/oauth2/callback" ],
-    "webOrigins" : [ "https://localhost" ],
-    "notBefore" : 0,
-    "bearerOnly" : false,
-    "consentRequired" : false,
-    "standardFlowEnabled" : true,
-    "implicitFlowEnabled" : false,
-    "directAccessGrantsEnabled" : true,
-    "serviceAccountsEnabled" : true,
-    "authorizationServicesEnabled" : true,
-    "publicClient" : false,
-    "frontchannelLogout" : true,
-    "protocol" : "openid-connect",
-    "attributes" : {
-      "access.token.lifespan" : "300",
-      "request.object.signature.alg" : "any",
-      "request.object.encryption.alg" : "any",
-      "client.introspection.response.allow.jwt.claim.enabled" : "false",
-      "standard.token.exchange.enabled" : "false",
-      "frontchannel.logout.session.required" : "true",
-      "post.logout.redirect.uris" : "+",
-      "oauth2.device.authorization.grant.enabled" : "false",
-      "use.refresh.tokens" : "true",
-      "realm_client" : "false",
-      "oidc.ciba.grant.enabled" : "false",
-      "client.use.lightweight.access.token.enabled" : "false",
-      "client_credentials.use_refresh_token" : "false",
-      "request.object.required" : "not required",
-      "access.token.header.type.rfc9068" : "false",
-      "acr.loa.map" : "{}",
-      "require.pushed.authorization.requests" : "false",
-      "tls.client.certificate.bound.access.tokens" : "false",
-      "display.on.consent.screen" : "false",
-      "request.object.encryption.enc" : "any",
-      "client.session.max.lifespan" : "28800",
-       "token.response.type.bearer.lower-case" : "false"
-    },
-    "authenticationFlowBindingOverrides" : { },
-    "fullScopeAllowed" : true,
-    "nodeReRegistrationTimeout" : -1,
-    "protocolMappers" : [ {
-      "id" : "b5366399-e022-4230-9606-e8314d56c437",
-      "name" : "Set Audience",
-      "protocol" : "openid-connect",
-      "protocolMapper" : "oidc-audience-mapper",
-      "consentRequired" : false,
-      "config" : {
-        "included.client.audience" : "citizen-app",
-        "access.token.claim" : "true"
-      }
-    }, {
-      "id" : "3471be85-73fc-4f75-b0c4-e1118389e052",
-      "name" : "DepartmentRoleAttribute",
-      "protocol" : "openid-connect",
-      "protocolMapper" : "oidc-usermodel-attribute-mapper",
-      "consentRequired" : false,
-      "config" : {
-        "introspection.token.claim" : "true",
-        "userinfo.token.claim" : "true",
-        "user.attribute" : "department_roles",
-        "id.token.claim" : "true",
-        "lightweight.claim" : "false",
-        "access.token.claim" : "true",
-        "claim.name" : "department_roles",
-        "jsonType.label" : "String"
-      }
-    } ],
-    "defaultClientScopes" : [ "web-origins", "service_account", "acr", "roles", "profile", "basic", "email" ],
-    "optionalClientScopes" : [ "address", "phone", "organization", "offline_access", "microprofile-jwt" ],
-    "authorizationSettings" : {
-      "allowRemoteResourceManagement" : true,
-      "policyEnforcementMode" : "ENFORCING",
-      "resources" : [ ],
-      "policies" : [ ],
-      "scopes" : [ ],
-      "decisionStrategy" : "UNANIMOUS"
-    }
-  }, {
     "id" : "e5cfed88-3225-4989-9436-20c5f1a49c7e",
     "clientId" : "broker",
     "name" : "${client_broker}",
@@ -689,6 +591,187 @@
     "fullScopeAllowed" : false,
     "nodeReRegistrationTimeout" : 0,
     "defaultClientScopes" : [ "web-origins", "acr", "roles", "profile", "basic", "email" ],
+    "optionalClientScopes" : [ "address", "phone", "organization", "offline_access", "microprofile-jwt" ]
+  }, {
+    "id" : "37ab3ac5-8d98-4acc-82fe-792211c4cd0a",
+    "clientId" : "citizen-app",
+    "name" : "",
+    "description" : "",
+    "rootUrl" : "",
+    "adminUrl" : "",
+    "baseUrl" : "",
+    "surrogateAuthRequired" : false,
+    "enabled" : true,
+    "alwaysDisplayInConsole" : false,
+    "clientAuthenticatorType" : "client-secret",
+    "secret" : "rpC8odnaEbiwKKxVwcg8yle2bobgFUA2",
+    "redirectUris" : [ "http://localhost:5051/authentication/oauth2callback", "http://localhost:5051/Authentication/oauth2callback", "https://localhost/oauth2/callback", "https://localhost/api/citizen-portal/authentication/oauth2callback", "https://localhost/api/citizen-portal/Authentication/oauth2callback", "https://localhost/api/citizen-portal/*" ],
+    "webOrigins" : [ "*" ],
+    "notBefore" : 0,
+    "bearerOnly" : false,
+    "consentRequired" : false,
+    "standardFlowEnabled" : true,
+    "implicitFlowEnabled" : false,
+    "directAccessGrantsEnabled" : true,
+    "serviceAccountsEnabled" : true,
+    "authorizationServicesEnabled" : true,
+    "publicClient" : false,
+    "frontchannelLogout" : true,
+    "protocol" : "openid-connect",
+    "attributes" : {
+      "logout.confirmation.enabled" : "false",
+      "access.token.lifespan" : "300",
+      "request.object.signature.alg" : "any",
+      "request.object.encryption.alg" : "any",
+      "client.introspection.response.allow.jwt.claim.enabled" : "false",
+      "standard.token.exchange.enabled" : "false",
+      "frontchannel.logout.session.required" : "true",
+      "post.logout.redirect.uris" : "+",
+      "oauth2.device.authorization.grant.enabled" : "false",
+      "use.refresh.tokens" : "true",
+      "realm_client" : "false",
+      "oidc.ciba.grant.enabled" : "false",
+      "client.use.lightweight.access.token.enabled" : "false",
+      "client_credentials.use_refresh_token" : "false",
+      "request.object.required" : "not required",
+      "access.token.header.type.rfc9068" : "false",
+      "acr.loa.map" : "{}",
+      "require.pushed.authorization.requests" : "false",
+      "tls.client.certificate.bound.access.tokens" : "false",
+      "display.on.consent.screen" : "false",
+      "request.object.encryption.enc" : "any",
+      "client.session.max.lifespan" : "28800",
+      "token.response.type.bearer.lower-case" : "false",
+      "dpop.bound.access.tokens" : "false"
+    },
+    "authenticationFlowBindingOverrides" : { },
+    "fullScopeAllowed" : true,
+    "nodeReRegistrationTimeout" : -1,
+    "protocolMappers" : [ {
+      "id" : "b5366399-e022-4230-9606-e8314d56c437",
+      "name" : "Set Audience",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-audience-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "included.client.audience" : "citizen-app",
+        "access.token.claim" : "true"
+      }
+    }, {
+      "id" : "2d305747-0c2d-4264-972a-8803921add33",
+      "name" : "taxid",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-usermodel-attribute-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "aggregate.attrs" : "false",
+        "introspection.token.claim" : "true",
+        "multivalued" : "false",
+        "userinfo.token.claim" : "true",
+        "user.attribute" : "AFM",
+        "id.token.claim" : "true",
+        "lightweight.claim" : "false",
+        "access.token.claim" : "true",
+        "claim.name" : "taxid",
+        "jsonType.label" : "String"
+      }
+    }, {
+      "id" : "6e832116-1afc-43e9-a08f-251fcbd9ad55",
+      "name" : "fathername",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-usermodel-attribute-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "aggregate.attrs" : "false",
+        "introspection.token.claim" : "true",
+        "multivalued" : "false",
+        "userinfo.token.claim" : "true",
+        "user.attribute" : "fathername",
+        "id.token.claim" : "true",
+        "lightweight.claim" : "false",
+        "access.token.claim" : "true",
+        "claim.name" : "fathername",
+        "jsonType.label" : "String"
+      }
+  }, {
+      "id" : "fef02ec2-6cbe-4256-8f0d-3fc5bcbbf7c3",
+      "name" : "gsis_provider",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-usermodel-attribute-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "introspection.token.claim" : "true",
+        "userinfo.token.claim" : "true",
+        "user.attribute" : "gsis_provider",
+        "id.token.claim" : "true",
+        "lightweight.claim" : "false",
+        "access.token.claim" : "true",
+        "claim.name" : "gsis_provider",
+        "jsonType.label" : "String"
+      }
+    } ],
+    "defaultClientScopes" : [ "web-origins", "service_account", "acr", "roles", "profile", "basic", "email" ],
+    "optionalClientScopes" : [ "address", "phone", "organization", "offline_access", "microprofile-jwt" ],
+    "authorizationSettings" : {
+      "allowRemoteResourceManagement" : true,
+      "policyEnforcementMode" : "ENFORCING",
+      "resources" : [ ],
+      "policies" : [ ],
+      "scopes" : [ ],
+      "decisionStrategy" : "UNANIMOUS"
+    }
+  }, {
+    "clientId" : "ops-integration-client",
+    "name" : "ops-integration-client",
+    "description" : " A client for OPS",
+    "rootUrl" : "",
+    "adminUrl" : "",
+    "baseUrl" : "",
+    "surrogateAuthRequired" : false,
+    "enabled" : true,
+    "alwaysDisplayInConsole" : false,
+    "clientAuthenticatorType" : "client-secret",
+    "secret" : "2Z8Fr6uvdjVom0YfI934EUPzq8h6bofM",
+    "redirectUris" : [ "/*" ],
+    "webOrigins" : [ "/*" ],
+    "notBefore" : 0,
+    "bearerOnly" : false,
+    "consentRequired" : false,
+    "standardFlowEnabled" : false,
+    "implicitFlowEnabled" : false,
+    "directAccessGrantsEnabled" : false,
+    "serviceAccountsEnabled" : true,
+    "publicClient" : false,
+    "frontchannelLogout" : true,
+    "protocol" : "openid-connect",
+    "attributes" : {
+      "realm_client" : "false",
+      "oidc.ciba.grant.enabled" : "false",
+      "client.secret.creation.time" : "1784376303",
+      "backchannel.logout.session.required" : "true",
+      "standard.token.exchange.enabled" : "false",
+      "oauth2.device.authorization.grant.enabled" : "false",
+      "backchannel.logout.revoke.offline.tokens" : "false",
+      "dpop.bound.access.tokens" : "false"
+    },
+    "authenticationFlowBindingOverrides" : { },
+    "fullScopeAllowed" : true,
+    "nodeReRegistrationTimeout" : -1,
+    "protocolMappers" : [ {
+      "id" : "59577272-b04d-4193-9616-3b9e183c2e90",
+      "name" : "Set Audience",
+      "protocol" : "openid-connect",
+      "protocolMapper" : "oidc-audience-mapper",
+      "consentRequired" : false,
+      "config" : {
+        "included.client.audience" : "ops-integration-client",
+        "id.token.claim" : "false",
+        "access.token.claim" : "true",
+        "lightweight.claim" : "false",
+        "introspection.token.claim" : "true"
+      }
+    } ],
+    "defaultClientScopes" : [ "web-origins", "service_account", "acr", "roles", "profile", "basic" ],
     "optionalClientScopes" : [ "address", "phone", "organization", "offline_access", "microprofile-jwt" ]
   }, {
     "id" : "ebd74ef0-ef4f-4e7d-903b-13e3944b3503",
@@ -1411,8 +1494,104 @@
   "enabledEventTypes" : [ ],
   "adminEventsEnabled" : false,
   "adminEventsDetailsEnabled" : false,
-  "identityProviders" : [ ],
-  "identityProviderMappers" : [ ],
+  "identityProviders" : [ {
+    "alias" : "gsis-govuser-test",
+    "displayName" : "",
+    "internalId" : "30b2cb9f-3158-4853-a7ae-2c26d9e3a36c",
+    "providerId" : "gsis-taxis",
+    "enabled" : true,
+    "trustEmail" : true,
+    "storeToken" : false,
+    "linkOnly" : false,
+    "hideOnLogin" : false,
+    "config" : {
+      "userInfoUrl" : "https://test.gsis.gr/oauth2servergov/userinfo?format=xml",
+      "acceptsPromptNoneForwardFromClient" : "false",
+      "clientId" : "T5ZV1548887",
+      "tokenUrl" : "https://test.gsis.gr/oauth2servergov/oauth/token",
+      "showInAccountConsole" : "ALWAYS",
+      "filteredByClaim" : "false",
+      "caseSensitiveOriginalUsername" : "false",
+      "generateScopedUsername" : "true",
+      "authorizationUrl" : "https://test.gsis.gr/oauth2servergov/oauth/authorize",
+      "disableUserInfo" : "false",
+      "logoutUrl" : "https://test.gsis.gr/oauth2servergov/logout/",
+      "syncMode" : "FORCE",
+      "clientSecret" : "W3b_53rv!c3_#K$$@",
+      "generatePlaceholderEmail" : "true",
+      "defaultScope" : "read"
+    },
+    "types" : [ ]
+  }, {
+    "alias" : "gsis-taxis-test",
+    "displayName" : "",
+    "internalId" : "52fb4475-4e00-4123-b177-3b794bd2f161",
+    "providerId" : "gsis-taxis",
+    "enabled" : true,
+    "trustEmail" : true,
+    "storeToken" : false,
+    "linkOnly" : false,
+    "hideOnLogin" : false,
+    "config" : {
+      "userInfoUrl" : "https://test.gsis.gr/oauth2server/userinfo?format=xml",
+      "acceptsPromptNoneForwardFromClient" : "false",
+      "clientId" : "TYWGBC48886",
+      "tokenUrl" : "https://test.gsis.gr/oauth2server/oauth/token",
+      "showInAccountConsole" : "ALWAYS",
+      "filteredByClaim" : "false",
+      "caseSensitiveOriginalUsername" : "false",
+      "generateScopedUsername" : "true",
+      "authorizationUrl" : "https://test.gsis.gr/oauth2server/oauth/authorize",
+      "disableUserInfo" : "false",
+      "logoutUrl" : "https://test.gsis.gr/oauth2server/logout/",
+      "syncMode" : "FORCE",
+      "clientSecret" : "W3b_53rv!c3_#K$$@",
+      "generatePlaceholderEmail" : "true",
+      "defaultScope" : "read"
+    },
+    "types" : [ ]
+  } ],
+  "identityProviderMappers" : [ {
+    "id" : "e981f2ec-8bb8-4116-bd8e-28189d6ff78f",
+    "name" : "taxisid",
+    "identityProviderAlias" : "gsis-taxis-test",
+    "identityProviderMapper" : "gsis-user-attribute-mapper",
+    "config" : {
+      "syncMode" : "INHERIT",
+      "userAttribute" : "AFM",
+      "jsonField" : "taxid"
+    }
+  }, {
+    "id" : "bdb8ef39-250a-4ea3-9643-35245dbe68bb",
+    "name" : "fathername",
+    "identityProviderAlias" : "gsis-taxis-test",
+    "identityProviderMapper" : "gsis-user-attribute-mapper",
+    "config" : {
+      "syncMode" : "FORCE",
+      "userAttribute" : "fathername",
+      "jsonField" : "fathername"
+    }
+  }, {
+    "id" : "4f501d1d-4c69-4545-ab77-d6cd97aae515",
+    "name" : "fathername",
+    "identityProviderAlias" : "gsis-govuser-test",
+    "identityProviderMapper" : "gsis-user-attribute-mapper",
+    "config" : {
+      "syncMode" : "FORCE",
+      "userAttribute" : "fathername",
+      "jsonField" : "fathername"
+    }
+  }, {
+    "id" : "679ede5d-dd17-4893-810f-041a639b44f7",
+    "name" : "taxid",
+    "identityProviderAlias" : "gsis-govuser-test",
+    "identityProviderMapper" : "gsis-user-attribute-mapper",
+    "config" : {
+      "syncMode" : "FORCE",
+      "userAttribute" : "AFM",
+      "jsonField" : "taxid"
+    }
+  } ],
   "components" : {
     "org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy" : [ {
       "id" : "4f4d6649-3542-44c9-91d6-d6061cd3c98e",
@@ -1446,7 +1625,7 @@
       "subType" : "anonymous",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "oidc-address-mapper", "oidc-usermodel-attribute-mapper", "oidc-full-name-mapper", "saml-user-attribute-mapper", "oidc-sha256-pairwise-sub-mapper", "oidc-usermodel-property-mapper", "saml-role-list-mapper", "saml-user-property-mapper" ]
+        "allowed-protocol-mapper-types" : [ "oidc-sha256-pairwise-sub-mapper", "oidc-full-name-mapper", "saml-user-attribute-mapper", "saml-role-list-mapper", "saml-user-property-mapper", "oidc-usermodel-attribute-mapper", "oidc-usermodel-property-mapper", "oidc-address-mapper" ]
       }
     }, {
       "id" : "ac1aa5b8-2ff5-4215-9d8c-93083676f29b",
@@ -1471,7 +1650,7 @@
       "subType" : "authenticated",
       "subComponents" : { },
       "config" : {
-        "allowed-protocol-mapper-types" : [ "oidc-usermodel-property-mapper", "oidc-usermodel-attribute-mapper", "saml-role-list-mapper", "saml-user-attribute-mapper", "oidc-full-name-mapper", "oidc-address-mapper", "oidc-sha256-pairwise-sub-mapper", "saml-user-property-mapper" ]
+        "allowed-protocol-mapper-types" : [ "oidc-full-name-mapper", "oidc-usermodel-property-mapper", "saml-role-list-mapper", "oidc-sha256-pairwise-sub-mapper", "saml-user-property-mapper", "saml-user-attribute-mapper", "oidc-address-mapper", "oidc-usermodel-attribute-mapper" ]
       }
     }, {
       "id" : "9c2f0e2e-92d6-43fb-8471-5f1bd918e7b5",
@@ -1489,7 +1668,7 @@
       "providerId" : "declarative-user-profile",
       "subComponents" : { },
       "config" : {
-        "kc.user.profile.config" : [ "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"annotations\":{},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"annotations\":{},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"department_roles\",\"displayName\":\"Department Roles\",\"validations\":{},\"annotations\":{},\"permissions\":{\"view\":[],\"edit\":[\"admin\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}" ]
+        "kc.user.profile.config" : [ "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"annotations\":{},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"annotations\":{},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"AFM\",\"displayName\":\"\",\"validations\":{},\"annotations\":{},\"permissions\":{\"view\":[],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"fathername\",\"displayName\":\"Fathername\",\"validations\":{},\"annotations\":{},\"permissions\":{\"view\":[],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"gsis_provider\",\"displayName\":\"gsis_provider\",\"validations\":{},\"annotations\":{},\"permissions\":{\"view\":[],\"edit\":[\"admin\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}" ]
       }
     } ],
     "org.keycloak.keys.KeyProvider" : [ {
@@ -2220,7 +2399,7 @@
     "cibaInterval" : "5",
     "realmReusableOtpCode" : "false"
   },
-  "keycloakVersion" : "26.3.4",
+  "keycloakVersion" : "26.5.6",
   "userManagedAccessAllowed" : false,
   "organizationsEnabled" : false,
   "verifiableCredentialsEnabled" : false,

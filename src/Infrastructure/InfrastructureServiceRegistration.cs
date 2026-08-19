@@ -35,6 +35,9 @@ public static class InfrastructureServiceRegistration
         var storageClientSettings = StorageClientSettings.BindFromConfiguration(configuration);
         services.AddSingleton(Options.Create(storageClientSettings));
 
+        var archiumClientSettings = ArchiumClientSettings.BindFromConfiguration(configuration);
+        services.AddSingleton(Options.Create(archiumClientSettings));
+
         // === Database ===
         var connectionString = portalSettings.DbConnection;
         var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
@@ -78,13 +81,30 @@ public static class InfrastructureServiceRegistration
         services.AddHttpClient<IKeycloakApiClient, KeycloakApiClient>(client =>
         {
             client.BaseAddress = new Uri(keycloakBaseUrl);
-        });
+        }).ConfigurePrimaryHttpMessageHandler(() =>
+        {
+            return new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            };
+        }); 
 
         services.AddHttpClient<IStorageApiClient, StorageApiClient>(client =>
         {
             client.BaseAddress = new Uri(storageClientSettings.BaseUrl);
         });
-        
+
+        services.AddHttpClient<IArchiumApiClient, ArchiumApiClient>(client =>
+        {
+            client.BaseAddress = new Uri(archiumClientSettings.BaseUrl);
+        }).ConfigurePrimaryHttpMessageHandler(() =>
+        {
+            return new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+            };
+        }); 
+
         // Add Error Catalog Path
         var path = Path.Combine(Environment.CurrentDirectory, "errors.json");
         if (!File.Exists(path))
