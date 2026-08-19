@@ -275,7 +275,7 @@ public sealed class ProtocolAssignedConsumer : BackgroundService
                     _logger.LogCritical(ex,
                         "Dropping message at {TPO} for {PublicId} after {Attempts} unexpected failures.",
                         tpo, payload.ApplicationPublicId, attempt);
-                    return;
+                    return; // give up so the caller commits and the partition isn't blocked forever
                 }
 
                 var delay = TimeSpan.FromMilliseconds(DeliveryRetryBaseMs * Math.Pow(2, attempt - 1));
